@@ -3,6 +3,7 @@ import { Button } from "../components/ui/button"
 import { Card, CardContent } from "../components/ui/card"
 import { Shield, FileCheck, GitBranch, Users, TrendingUp, Lock, Sparkles, CheckCircle2 } from "lucide-react"
 import { motion } from "framer-motion"
+import Squares from "../components/ui/squares"
 
 export function HomePage() {
   const fadeInUp = {
@@ -73,8 +74,19 @@ export function HomePage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative pt-[216px] pb-16">
-        <div className="max-w-[1060px] mx-auto px-4">
+      <section className="relative pt-[216px] pb-16 overflow-hidden">
+        {/* Animated Squares Background */}
+        <div className="absolute inset-0 z-0">
+          <Squares 
+            speed={0.5}
+            squareSize={40}
+            direction="diagonal"
+            borderColor="rgba(55, 50, 47, 0.1)"
+            hoverFillColor="rgba(55, 50, 47, 0.05)"
+          />
+        </div>
+        
+        <div className="max-w-[1060px] mx-auto px-4 relative z-10">
           <div className="flex flex-col items-center gap-12">
             <motion.div 
               className="max-w-[937px] flex flex-col items-center gap-3"
