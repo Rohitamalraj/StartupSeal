@@ -16,7 +16,10 @@ export function SuiProvider({ children }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
-        <WalletProvider autoConnect>
+        <WalletProvider 
+          autoConnect
+          preferredWallets={['Sui Wallet', 'Suiet', 'Ethos Wallet', 'Martian Wallet', 'Surf Wallet']}
+        >
           {children}
         </WalletProvider>
       </SuiClientProvider>

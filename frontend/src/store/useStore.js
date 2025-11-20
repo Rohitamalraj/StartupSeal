@@ -1,8 +1,38 @@
 import { create } from 'zustand'
+import { getAllStartupSeals, getLeaderboard } from '../utils/blockchain'
 
-export const useStore = create((set) => ({
-  // Mock startups data
-  startups: [
+export const useStore = create((set, get) => ({
+  // Real startups data from blockchain
+  startups: [],
+  loading: false,
+  error: null,
+  
+  // Fetch all startups from blockchain
+  fetchStartups: async () => {
+    set({ loading: true, error: null })
+    try {
+      const seals = await getAllStartupSeals()
+      set({ startups: seals, loading: false })
+    } catch (error) {
+      console.error('Failed to fetch startups:', error)
+      set({ error: error.message, loading: false })
+    }
+  },
+  
+  // Fetch leaderboard with filters
+  fetchLeaderboard: async (filters = {}) => {
+    set({ loading: true, error: null })
+    try {
+      const seals = await getLeaderboard(filters)
+      set({ startups: seals, loading: false })
+    } catch (error) {
+      console.error('Failed to fetch leaderboard:', error)
+      set({ error: error.message, loading: false })
+    }
+  },
+  
+  // Mock data removed - using real blockchain data
+  _mockStartups: [
     {
       id: 1,
       name: "DeFiChain Protocol",
@@ -196,14 +226,17 @@ export const useStore = create((set) => ({
     }
   ],
 
-  // Hackathons
+  // Static configuration data
   hackathons: [
     "All Hackathons",
     "ETHGlobal Istanbul 2024",
+    "ETHGlobal Bangkok 2024",
+    "Sui Overflow 2024",
     "ETHDenver 2024",
     "Solana Hyperdrive 2024",
     "Polygon zkEVM Hackathon",
-    "Base Buildathon"
+    "Base Buildathon",
+    "DoraHacks",
   ],
 
   // Categories
@@ -215,10 +248,11 @@ export const useStore = create((set) => ({
     "Tooling",
     "AI",
     "NFT",
-    "Social"
+    "Social",
+    "DAO",
   ],
 
-  // Selected filters
+  // Filter state
   selectedHackathon: "All Hackathons",
   selectedCategory: "All Categories",
   scoreRange: [0, 100],
@@ -230,7 +264,7 @@ export const useStore = create((set) => ({
 
   // Get filtered startups
   getFilteredStartups: () => {
-    const state = useStore.getState()
+    const state = get()
     let filtered = state.startups
 
     if (state.selectedHackathon !== "All Hackathons") {

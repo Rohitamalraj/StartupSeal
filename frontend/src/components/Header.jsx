@@ -35,12 +35,6 @@ export function Header() {
               >
                 About
               </Link>
-              <Link
-                to="/admin"
-                className="text-[#37322f] hover:text-[#37322f]/80 text-sm font-medium transition-colors"
-              >
-                Admin
-              </Link>
             </div>
           </div>
           <WalletConnect />

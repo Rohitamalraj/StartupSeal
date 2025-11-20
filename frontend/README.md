@@ -1,6 +1,52 @@
-# TrustEngine - Web3 Startup Verification Platform
+# StartupSeal Frontend - Production
 
-A provably authentic trust engine for Web3 hackathon startups, featuring AI-driven credibility scoring, on-chain verification, and comprehensive startup analysis.
+A provably authentic trust engine for Web3 hackathon startups, featuring AI-driven credibility scoring, on-chain verification, and direct NFT minting.
+
+## Prerequisites
+
+- **Node.js**: v20.19+ or v22.12+ (you currently have v22.10.0, **please upgrade**)
+- **Sui Wallet**: Browser extension installed
+- **Backend API**: Running on `http://localhost:8000`
+
+## Quick Start
+
+### 1. Upgrade Node.js (if needed)
+Download from: https://nodejs.org/ (install v22.12+)
+
+### 2. Install Dependencies
+```powershell
+npm install
+```
+
+If you encounter native binding errors:
+```powershell
+Remove-Item -Recurse -Force node_modules, package-lock.json
+npm install
+```
+
+### 3. Start Backend
+```powershell
+cd c:\Users\thame\nautilus\nautilus-agent
+python server.py
+```
+
+### 4. Start Frontend
+```powershell
+npm run dev
+```
+
+### 5. Open Browser
+Navigate to: http://localhost:5173
+
+## Environment Configuration
+
+The `.env` file is pre-configured with:
+- GitHub OAuth credentials
+- Sui Testnet RPC URL
+- Deployed contract addresses (Package ID, SealRegistry)
+- Backend API endpoint (localhost:8000)
+
+**No changes needed** - ready to use!
 
 ## 🚀 Features
 

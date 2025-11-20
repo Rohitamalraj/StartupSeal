@@ -6,7 +6,6 @@ import { HomePage } from "./pages/HomePage"
 import { VerifyPage } from "./pages/VerifyPage"
 import { ProfilePage } from "./pages/ProfilePage"
 import { LeaderboardPage } from "./pages/LeaderboardPage"
-import { AdminPage } from "./pages/AdminPage"
 import { AboutPage } from "./pages/AboutPage"
 import { FundraisePage } from "./pages/FundraisePage"
 import '@mysten/dapp-kit/dist/index.css'
@@ -24,7 +23,6 @@ function App() {
             <Route path="/profile/:id" element={<ProfilePage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/fundraise" element={<FundraisePage />} />
-            <Route path="/admin" element={<AdminPage />} />
             <Route path="/about" element={<AboutPage />} />
             </Routes>
           </main>

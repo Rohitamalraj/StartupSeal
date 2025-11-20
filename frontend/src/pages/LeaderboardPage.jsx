@@ -1,23 +1,47 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { Card, CardContent } from "../components/ui/card"
 import { Badge } from "../components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table"
-import { Trophy, TrendingUp, Calendar } from "lucide-react"
+import { Trophy, TrendingUp, Calendar, Loader2, AlertCircle } from "lucide-react"
 import { useStore } from "../store/useStore"
+import { Button } from "../components/ui/button"
 
 export function LeaderboardPage() {
-  const startups = useStore((state) => state.startups)
-  const hackathons = useStore((state) => state.hackathons)
-  const categories = useStore((state) => state.categories)
-  const [selectedHackathon, setSelectedHackathon] = useState("All Hackathons")
-  const [selectedCategory, setSelectedCategory] = useState("All Categories")
+  const { 
+    startups, 
+    loading, 
+    error, 
+    hackathons, 
+    categories,
+    selectedHackathon,
+    selectedCategory,
+    setSelectedHackathon,
+    setSelectedCategory,
+    fetchLeaderboard 
+  } = useStore()
 
-  const filteredStartups = startups
-    .filter(s => selectedHackathon === "All Hackathons" || s.hackathon === selectedHackathon)
-    .filter(s => selectedCategory === "All Categories" || s.category === selectedCategory)
-    .sort((a, b) => b.trustScore - a.trustScore)
+  useEffect(() => {
+    // Fetch leaderboard data on mount
+    fetchLeaderboard()
+  }, [fetchLeaderboard])
+
+  // Re-fetch when filters change
+  useEffect(() => {
+    const filters = {}
+    if (selectedHackathon !== "All Hackathons") {
+      filters.hackathon = selectedHackathon
+    }
+    if (selectedCategory !== "All Categories") {
+      filters.category = selectedCategory
+    }
+    fetchLeaderboard(filters)
+  }, [selectedHackathon, selectedCategory, fetchLeaderboard])
+
+  const filteredStartups = startups.sort((a, b) => 
+    (b.overall_trust_score || b.trust_score || 0) - (a.overall_trust_score || a.trust_score || 0)
+  )
 
   const getScoreColor = (score) => {
     if (score >= 85) return "text-green-600"
