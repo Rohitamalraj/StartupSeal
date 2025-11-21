@@ -8,6 +8,7 @@ import { ProfilePage } from "./pages/ProfilePage"
 import { LeaderboardPage } from "./pages/LeaderboardPage"
 import { AboutPage } from "./pages/AboutPage"
 import { FundraisePage } from "./pages/FundraisePage"
+import { DashboardPage } from "./pages/DashboardPage"
 import '@mysten/dapp-kit/dist/index.css'
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
             <Route path="/profile/:id" element={<ProfilePage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/fundraise" element={<FundraisePage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/about" element={<AboutPage />} />
             </Routes>
           </main>

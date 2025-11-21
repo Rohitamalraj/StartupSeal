@@ -3,7 +3,7 @@ import axios from 'axios';
 // Updated Walrus endpoints (Nov 2025) - old endpoints deprecated
 const AGGREGATOR = import.meta.env.VITE_WALRUS_AGGREGATOR || 'https://wal-aggregator-testnet.staketab.org';
 const PUBLISHER = import.meta.env.VITE_WALRUS_PUBLISHER || 'https://wal-publisher-testnet.staketab.org';
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 /**
  * Upload files to Walrus as individual blobs

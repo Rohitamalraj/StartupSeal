@@ -7,52 +7,105 @@ const suiClient = new SuiClient({
   url: process.env.SUI_RPC_URL || 'https://fullnode.testnet.sui.io:443'
 });
 
-const PACKAGE_ID = process.env.PACKAGE_ID || '0xe1df86bc99868f214f86951db2738bd2c46c47f2a4db6753f4fb98f681bef015';
-const SEAL_REGISTRY = process.env.SEAL_REGISTRY || '0xbf8c46c6ded3db79361e84b12ab98e4957fc5cf345e7f43bd466e9775bbda01d';
+const PACKAGE_ID = process.env.SUI_PACKAGE_ID || process.env.PACKAGE_ID || '0x4ed0363bfb0084f0c75aae40aee7aabddd0413bc21afef40a42ad7c2faa0a9f4';
+const SEAL_REGISTRY = process.env.SEAL_REGISTRY || '0x1ca3cf4e05f04a3ae3fd0368cf97c81a4a9ac59c3479ab53d50eeaadf58b37f8';
 
 /**
  * GET /api/seals/all
- * Fetch all startup seals from blockchain
+ * Fetch all startup seals from blockchain using events
  */
 router.get('/all', async (req, res) => {
   try {
     console.log('📥 Fetching all startup seals from blockchain...');
     console.log('   Package ID:', PACKAGE_ID);
+    console.log('   Event Type:', `${PACKAGE_ID}::startup_seal::SealMinted`);
     
-    // Query all StartupSeal objects owned by the registry
-    const objects = await suiClient.getOwnedObjects({
-      owner: SEAL_REGISTRY,
-      options: {
-        showType: true,
-        showContent: true,
-        showOwner: true,
+    // Query all SealMinted events
+    const events = await suiClient.queryEvents({
+      query: {
+        MoveEventType: `${PACKAGE_ID}::startup_seal::SealMinted`
+      },
+      limit: 50,
+      order: 'descending'
+    });
+
+    console.log(`   Found ${events.data.length} seal creation events`);
+
+    // Fetch full object data for each seal
+    const sealPromises = events.data.map(async (event) => {
+      try {
+        const sealId = event.parsedJson.seal_id;
+        console.log(`   Fetching seal object: ${sealId}`);
+        
+        const sealObject = await suiClient.getObject({
+          id: sealId,
+          options: {
+            showContent: true,
+            showOwner: true,
+            showType: true
+          }
+        });
+
+        if (!sealObject.data) {
+          console.log(`   ⚠️ Seal ${sealId} not found`);
+          return null;
+        }
+
+        const content = sealObject.data.content.fields;
+        
+        // Helper function to safely convert vector to string
+        const vectorToString = (vec) => {
+          if (!vec) return '';
+          if (typeof vec === 'string') return vec;
+          if (Array.isArray(vec)) {
+            return Buffer.from(vec).toString('utf-8');
+          }
+          return String(vec);
+        };
+
+        const startupName = vectorToString(content.startup_name);
+        console.log(`   ✅ Loaded seal: ${startupName}`);
+
+        return {
+          id: sealId,
+          name: startupName,
+          startup_name: startupName,
+          githubRepo: vectorToString(content.github_repo),
+          github_repo: vectorToString(content.github_repo),
+          hackathon: vectorToString(content.hackathon_name),
+          hackathon_name: vectorToString(content.hackathon_name),
+          owner: content.owner,
+          walletAddress: content.owner,
+          trustScore: parseInt(content.overall_trust_score) || 0,
+          overall_trust_score: parseInt(content.overall_trust_score) || 0,
+          hackathonScore: parseInt(content.hackathon_score) || 0,
+          hackathon_score: parseInt(content.hackathon_score) || 0,
+          githubScore: parseInt(content.github_score) || 0,
+          github_score: parseInt(content.github_score) || 0,
+          aiScore: parseInt(content.ai_consistency_score) || 0,
+          ai_consistency_score: parseInt(content.ai_consistency_score) || 0,
+          documentScore: parseInt(content.document_score) || 0,
+          document_score: parseInt(content.document_score) || 0,
+          verified: content.hackathon_verified || false,
+          hackathon_verified: content.hackathon_verified || false,
+          timestamp: parseInt(content.timestamp) || Date.now(),
+          createdAt: new Date(parseInt(content.timestamp) || Date.now()).toISOString(),
+          certificate_blob_ids: content.certificate_blob_ids || [],
+          nonce: content.nonce || '',
+          category: "DeFi",
+          riskLevel: parseInt(content.overall_trust_score) >= 85 ? "Low" : 
+                    parseInt(content.overall_trust_score) >= 70 ? "Medium" : "High",
+          description: `Verified startup from ${vectorToString(content.hackathon_name)}`,
+          logo: "https://api.dicebear.com/7.x/shapes/svg?seed=" + startupName,
+          lastVerified: new Date(parseInt(content.timestamp) || Date.now()).toLocaleDateString()
+        };
+      } catch (error) {
+        console.error('   ❌ Error fetching seal:', error.message);
+        return null;
       }
     });
 
-    console.log(`   Found ${objects.data.length} objects`);
-
-    // Filter for StartupSeal objects and extract data
-    const seals = objects.data
-      .filter(obj => obj.data?.type?.includes('StartupSeal'))
-      .map(obj => {
-        const content = obj.data.content.fields;
-        return {
-          id: obj.data.objectId,
-          startup_name: Buffer.from(content.startup_name).toString('utf-8'),
-          github_repo: Buffer.from(content.github_repo).toString('utf-8'),
-          hackathon_name: Buffer.from(content.hackathon_name).toString('utf-8'),
-          owner: content.owner,
-          overall_trust_score: parseInt(content.overall_trust_score),
-          hackathon_score: parseInt(content.hackathon_score),
-          github_score: parseInt(content.github_score),
-          ai_consistency_score: parseInt(content.ai_consistency_score),
-          document_score: parseInt(content.document_score),
-          hackathon_verified: content.hackathon_verified,
-          timestamp: parseInt(content.timestamp),
-          certificate_blob_ids: content.certificate_blob_ids || [],
-          nonce: content.nonce,
-        };
-      });
+    const seals = (await Promise.all(sealPromises)).filter(seal => seal !== null);
 
     console.log(`✅ Returning ${seals.length} startup seals`);
 
@@ -65,8 +118,10 @@ router.get('/all', async (req, res) => {
   } catch (error) {
     console.error('❌ Failed to fetch seals:', error);
     res.status(500).json({
+      success: false,
       error: 'Failed to fetch startup seals',
-      message: error.message
+      message: error.message,
+      seals: []
     });
   }
 });

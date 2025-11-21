@@ -22,26 +22,72 @@ export function LeaderboardPage() {
     fetchLeaderboard 
   } = useStore()
 
-  useEffect(() => {
-    // Fetch leaderboard data on mount
-    fetchLeaderboard()
-  }, [fetchLeaderboard])
-
-  // Re-fetch when filters change
-  useEffect(() => {
-    const filters = {}
-    if (selectedHackathon !== "All Hackathons") {
-      filters.hackathon = selectedHackathon
+  // Use mock data for now
+  const mockStartups = [
+    {
+      id: "mock-1",
+      name: "DeFiChain Protocol",
+      logo: "🔷",
+      category: "DeFi",
+      hackathon: "ETHGlobal Istanbul 2024",
+      trustScore: 92,
+      riskLevel: "Low",
+      lastVerified: "2024-11-15",
+      description: "Decentralized lending protocol with cross-chain capabilities"
+    },
+    {
+      id: "mock-2",
+      name: "ZKProof Identity",
+      logo: "🛡️",
+      category: "Infrastructure",
+      hackathon: "ETHDenver 2024",
+      trustScore: 88,
+      riskLevel: "Low",
+      lastVerified: "2024-11-18",
+      description: "Zero-knowledge identity verification for Web3"
+    },
+    {
+      id: "mock-3",
+      name: "NFT Marketplace Pro",
+      logo: "🎨",
+      category: "NFT",
+      hackathon: "NFT NYC 2024",
+      trustScore: 85,
+      riskLevel: "Low",
+      lastVerified: "2024-11-10",
+      description: "Next-gen NFT marketplace with royalty protection"
+    },
+    {
+      id: "mock-4",
+      name: "GameFi Arena",
+      logo: "🎮",
+      category: "Gaming",
+      hackathon: "Starknet Resolve 2024",
+      trustScore: 78,
+      riskLevel: "Medium",
+      lastVerified: "2024-11-20",
+      description: "Play-to-earn gaming platform on Sui"
+    },
+    {
+      id: "mock-5",
+      name: "DAO Governance Tool",
+      logo: "🏛️",
+      category: "DAO",
+      hackathon: "Sui Overflow 2024",
+      trustScore: 82,
+      riskLevel: "Low",
+      lastVerified: "2024-11-12",
+      description: "Decentralized governance framework for DAOs"
     }
-    if (selectedCategory !== "All Categories") {
-      filters.category = selectedCategory
-    }
-    fetchLeaderboard(filters)
-  }, [selectedHackathon, selectedCategory, fetchLeaderboard])
+  ]
 
-  const filteredStartups = startups.sort((a, b) => 
-    (b.overall_trust_score || b.trust_score || 0) - (a.overall_trust_score || a.trust_score || 0)
-  )
+  const filteredStartups = mockStartups
+    .filter(startup => {
+      const matchesHackathon = selectedHackathon === "All Hackathons" || startup.hackathon === selectedHackathon
+      const matchesCategory = selectedCategory === "All Categories" || startup.category === selectedCategory
+      return matchesHackathon && matchesCategory
+    })
+    .sort((a, b) => b.trustScore - a.trustScore)
 
   const getScoreColor = (score) => {
     if (score >= 85) return "text-green-600"
@@ -127,23 +173,40 @@ export function LeaderboardPage() {
           </CardContent>
         </Card>
 
+        {/* Empty State */}
+        {filteredStartups.length === 0 && !loading && (
+          <Card>
+            <CardContent className="pt-12 pb-12 text-center">
+              <Trophy className="w-16 h-16 mx-auto mb-4 text-[#605a57] opacity-50" />
+              <h3 className="text-xl font-semibold text-[#37322f] mb-2">No Startups Found</h3>
+              <p className="text-[#605a57] mb-6">
+                {error ? 'Unable to fetch startups. Please try again later.' : 'Be the first to verify your startup!'}
+              </p>
+              <Button onClick={() => window.location.href = '/verify'}>
+                Verify Your Startup
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Desktop Table View */}
-        <Card className="hidden md:block">
-          <CardContent className="pt-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-20">Rank</TableHead>
-                  <TableHead>Startup</TableHead>
-                  <TableHead>Trust Score</TableHead>
-                  <TableHead>Hackathon</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Risk Level</TableHead>
-                  <TableHead>Last Verified</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStartups.map((startup, index) => (
+        {filteredStartups.length > 0 && (
+          <Card className="hidden md:block">
+            <CardContent className="pt-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-20">Rank</TableHead>
+                    <TableHead>Startup</TableHead>
+                    <TableHead>Trust Score</TableHead>
+                    <TableHead>Hackathon</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Risk Level</TableHead>
+                    <TableHead>Last Verified</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStartups.map((startup, index) => (
                   <TableRow key={startup.id} className="hover:bg-muted/50 cursor-pointer">
                     <TableCell>
                       <div className="font-semibold text-lg">
@@ -188,13 +251,15 @@ export function LeaderboardPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Mobile Card View */}
-        <div className="md:hidden space-y-4">
+        {filteredStartups.length > 0 && (
+          <div className="md:hidden space-y-4">
           {filteredStartups.map((startup, index) => (
             <Link key={startup.id} to={`/profile/${startup.id}`}>
               <Card className="hover:shadow-md transition-shadow">
@@ -228,9 +293,10 @@ export function LeaderboardPage() {
                   </div>
                 </CardContent>
               </Card>
-            </Link>
-          ))}
-        </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

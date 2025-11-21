@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Coins, TrendingUp, Users, Target, ExternalLink, Search, Shield, CheckCircle2 } from "lucide-react"
 import { useStore } from "../store/useStore"
 import { useCurrentAccount } from "@mysten/dapp-kit"
+import { ContactStartupDialog } from "../components/ContactStartupDialog"
 
 export function FundraisePage() {
   const navigate = useNavigate()
@@ -24,18 +25,27 @@ export function FundraisePage() {
 
   // Fetch startups from blockchain on mount
   useEffect(() => {
+    console.log('📊 Fundraise page: Fetching startups from blockchain...')
     fetchStartups()
   }, [fetchStartups])
 
+  useEffect(() => {
+    console.log('📄 Fundraise page: Startups data updated:', storeStartups)
+    console.log('   Total startups:', storeStartups.length)
+  }, [storeStartups])
+
   // Add fundraising-specific data to startups
-  const allStartups = storeStartups.map(startup => ({
-    ...startup,
-    // Add mock fundraising data (these could be fetched from blockchain in the future)
-    fundraiseGoal: Math.floor(Math.random() * 450000) + 50000,
-    fundraiseRaised: Math.floor(Math.random() * 200000) + 10000,
-    backers: Math.floor(Math.random() * 150) + 10,
-    daysLeft: Math.floor(Math.random() * 60) + 1,
-  }))
+  const allStartups = storeStartups.map(startup => {
+    console.log('   Processing startup:', startup.name || startup.startup_name, startup)
+    return {
+      ...startup,
+      // Add mock fundraising data (these could be fetched from blockchain in the future)
+      fundraiseGoal: Math.floor(Math.random() * 450000) + 50000,
+      fundraiseRaised: Math.floor(Math.random() * 200000) + 10000,
+      backers: Math.floor(Math.random() * 150) + 10,
+      daysLeft: Math.floor(Math.random() * 60) + 1,
+    }
+  })
 
   const filteredStartups = allStartups.filter(startup => {
     const matchesCategory = selectedCategory === "All Categories" || startup.category === selectedCategory
@@ -181,8 +191,25 @@ export function FundraisePage() {
           </Select>
         </div>
 
+        {/* Empty State */}
+        {filteredStartups.length === 0 && (
+          <Card className="col-span-full">
+            <CardContent className="pt-12 pb-12 text-center">
+              <Coins className="w-16 h-16 mx-auto mb-4 text-[#605a57] opacity-50" />
+              <h3 className="text-xl font-semibold text-[#37322f] mb-2">No Startups Fundraising</h3>
+              <p className="text-[#605a57] mb-6">
+                No startups are currently fundraising. Be the first to create a verified startup!
+              </p>
+              <Button onClick={() => navigate('/verify')}>
+                Verify Your Startup
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Startup Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {filteredStartups.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredStartups.map((startup) => {
             const progressPercent = Math.round((startup.fundraiseRaised / startup.fundraiseGoal) * 100)
             const isDonating = processingDonations[startup.id]
@@ -317,6 +344,19 @@ export function FundraisePage() {
                   {/* Donation Input */}
                   <div className="space-y-3">
                     <div className="flex gap-2">
+                      <ContactStartupDialog 
+                        startup={{
+                          id: startup.id,
+                          name: startup.name,
+                          walletAddress: startup.walletAddress,
+                          owner: startup.owner
+                        }}
+                        trigger={
+                          <Button variant="outline" className="flex-1">
+                            Contact
+                          </Button>
+                        }
+                      />
                       <Input
                         type="number"
                         placeholder="Amount in SUI"
@@ -343,7 +383,7 @@ export function FundraisePage() {
                     </div>
                     {!currentAccount && (
                       <p className="text-xs text-[#605a57]">
-                        Connect your Sui wallet to donate
+                        Connect your Sui wallet to donate or contact startups
                       </p>
                     )}
                   </div>
@@ -351,11 +391,6 @@ export function FundraisePage() {
               </Card>
             )
           })}
-        </div>
-
-        {filteredStartups.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-[#605a57] text-lg">No startups found matching your criteria.</p>
           </div>
         )}
       </div>

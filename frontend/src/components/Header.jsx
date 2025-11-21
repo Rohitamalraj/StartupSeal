@@ -30,6 +30,12 @@ export function Header() {
                 Fundraise
               </Link>
               <Link
+                to="/dashboard"
+                className="text-[#37322f] hover:text-[#37322f]/80 text-sm font-medium transition-colors"
+              >
+                Dashboard
+              </Link>
+              <Link
                 to="/about"
                 className="text-[#37322f] hover:text-[#37322f]/80 text-sm font-medium transition-colors"
               >

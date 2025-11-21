@@ -7,18 +7,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { 
   Shield, AlertTriangle, CheckCircle2, GitBranch, 
   Users, FileText, TrendingUp, Calendar, Award, 
-  Rocket, DollarSign, AlertCircle, Loader2, Download, Sparkles
+  Rocket, DollarSign, AlertCircle, Loader2, Download, Sparkles, Bookmark, BookmarkCheck
 } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { getStartupSealById, fetchCertificateData } from "../utils/blockchain"
+import { ContactStartupDialog } from "../components/ContactStartupDialog"
+import { saveStartup, unsaveStartup, getSavedStartups } from "../utils/users"
+import { useCurrentAccount } from "@mysten/dapp-kit"
 
 export function ProfilePage() {
   const { id } = useParams()
+  const currentAccount = useCurrentAccount()
   const [startup, setStartup] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [certificates, setCertificates] = useState([])
   const [loadingCerts, setLoadingCerts] = useState(false)
+  const [isSaved, setIsSaved] = useState(false)
+  const [savingStartup, setSavingStartup] = useState(false)
 
   useEffect(() => {
     const fetchStartup = async () => {
@@ -106,6 +112,46 @@ export function ProfilePage() {
     
     fetchStartup()
   }, [id])
+
+  // Check if startup is saved by current user
+  useEffect(() => {
+    const checkIfSaved = async () => {
+      if (!currentAccount || !startup) return
+      
+      try {
+        const { savedStartups } = await getSavedStartups(currentAccount.address)
+        const saved = savedStartups.some(s => s.startupId === id)
+        setIsSaved(saved)
+      } catch (error) {
+        console.error('Error checking saved status:', error)
+      }
+    }
+    
+    checkIfSaved()
+  }, [currentAccount, startup, id])
+
+  const handleSaveToggle = async () => {
+    if (!currentAccount) {
+      alert("Please connect your Sui wallet first")
+      return
+    }
+
+    setSavingStartup(true)
+    try {
+      if (isSaved) {
+        await unsaveStartup(currentAccount.address, id)
+        setIsSaved(false)
+      } else {
+        await saveStartup(currentAccount.address, id, startup.startup_name || startup.name)
+        setIsSaved(true)
+      }
+    } catch (error) {
+      console.error('Error toggling save:', error)
+      alert("Failed to update saved status")
+    } finally {
+      setSavingStartup(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -307,6 +353,36 @@ export function ProfilePage() {
                 <Badge variant={getRiskBadgeVariant(displayData.riskLevel)}>
                   {displayData.riskLevel.toUpperCase()} RISK
                 </Badge>
+                
+                {/* Action Buttons */}
+                <div className="flex gap-2 mt-4 w-full">
+                  <ContactStartupDialog 
+                    startup={{
+                      id: id,
+                      name: displayData.name,
+                      walletAddress: displayData.walletAddress,
+                      owner: displayData.owner
+                    }} 
+                    trigger={
+                      <Button variant="default" className="flex-1" size="sm">
+                        Contact
+                      </Button>
+                    }
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleSaveToggle}
+                    disabled={savingStartup || !currentAccount}
+                    className="flex-1"
+                  >
+                    {isSaved ? (
+                      <><BookmarkCheck className="w-4 h-4" /></>
+                    ) : (
+                      <><Bookmark className="w-4 h-4" /></>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
