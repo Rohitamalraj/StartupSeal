@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card"
 import { Button } from "../components/ui/button"
@@ -6,31 +6,79 @@ import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
 import { Progress } from "../components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
-import { Coins, TrendingUp, Users, Target, ExternalLink, Search } from "lucide-react"
+import { Coins, TrendingUp, Users, Target, ExternalLink, Search, Shield, CheckCircle2 } from "lucide-react"
 import { useStore } from "../store/useStore"
 import { useCurrentAccount } from "@mysten/dapp-kit"
 
 export function FundraisePage() {
   const navigate = useNavigate()
   const currentAccount = useCurrentAccount()
-  const startups = useStore((state) => state.startups)
+  const storeStartups = useStore((state) => state.startups)
   const categories = useStore((state) => state.categories)
   
   const [selectedCategory, setSelectedCategory] = useState("All Categories")
   const [searchQuery, setSearchQuery] = useState("")
   const [donationAmounts, setDonationAmounts] = useState({})
   const [processingDonations, setProcessingDonations] = useState({})
+  const [localStorageStartups, setLocalStorageStartups] = useState([])
 
-  // Add fundraise data to startups
-  const startupsWithFundraising = startups.map(startup => ({
+  // Fetch startups from localStorage
+  useEffect(() => {
+    const loadLocalStorageStartups = () => {
+      const startups = []
+      // Iterate through localStorage to find startup seals
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith('startup_seal_')) {
+          try {
+            const data = JSON.parse(localStorage.getItem(key))
+            startups.push({
+              id: data.transaction_digest,
+              name: data.startup_name,
+              description: data.description,
+              trustScore: data.overall_trust_score,
+              hackathonScore: data.hackathon_score,
+              githubScore: data.github_score,
+              aiScore: data.ai_consistency_score,
+              documentScore: data.document_score,
+              hackathon: data.hackathon_name,
+              githubRepo: data.github_repo,
+              verified: data.hackathon_verified,
+              riskLevel: data.overall_trust_score >= 85 ? "Low" : data.overall_trust_score >= 70 ? "Medium" : "High",
+              walletAddress: data.owner,
+              category: "DeFi",
+              logo: "https://api.dicebear.com/7.x/shapes/svg?seed=" + data.startup_name,
+              explorerLink: data.explorer_link,
+              transactionDigest: data.transaction_digest,
+              trustOracleResult: data.trust_oracle_result,
+              createdAt: data.created_at,
+              // Add fundraising data
+              fundraiseGoal: Math.floor(Math.random() * 450000) + 50000,
+              fundraiseRaised: Math.floor(Math.random() * 200000) + 10000,
+              backers: Math.floor(Math.random() * 150) + 10,
+              daysLeft: Math.floor(Math.random() * 60) + 1,
+            })
+          } catch (error) {
+            console.error('Error parsing localStorage data:', error)
+          }
+        }
+      }
+      setLocalStorageStartups(startups)
+    }
+
+    loadLocalStorageStartups()
+  }, [])
+
+  // Combine store startups with localStorage startups
+  const allStartups = [...storeStartups.map(startup => ({
     ...startup,
-    fundraiseGoal: Math.floor(Math.random() * 450000) + 50000, // $50k - $500k
-    fundraiseRaised: Math.floor(Math.random() * 200000) + 10000, // $10k - $210k
+    fundraiseGoal: Math.floor(Math.random() * 450000) + 50000,
+    fundraiseRaised: Math.floor(Math.random() * 200000) + 10000,
     backers: Math.floor(Math.random() * 150) + 10,
     daysLeft: Math.floor(Math.random() * 60) + 1,
-  }))
+  })), ...localStorageStartups]
 
-  const filteredStartups = startupsWithFundraising.filter(startup => {
+  const filteredStartups = allStartups.filter(startup => {
     const matchesCategory = selectedCategory === "All Categories" || startup.category === selectedCategory
     const matchesSearch = startup.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          startup.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -95,7 +143,7 @@ export function FundraisePage() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-[#37322f] font-serif">
-                    ${(startupsWithFundraising.reduce((acc, s) => acc + s.fundraiseGoal, 0) / 1000).toFixed(0)}K
+                    ${(allStartups.reduce((acc, s) => acc + s.fundraiseGoal, 0) / 1000).toFixed(0)}K
                   </div>
                   <p className="text-sm text-[#605a57]">Total Goal</p>
                 </div>
@@ -110,7 +158,7 @@ export function FundraisePage() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-[#37322f] font-serif">
-                    ${(startupsWithFundraising.reduce((acc, s) => acc + s.fundraiseRaised, 0) / 1000).toFixed(0)}K
+                    ${(allStartups.reduce((acc, s) => acc + s.fundraiseRaised, 0) / 1000).toFixed(0)}K
                   </div>
                   <p className="text-sm text-[#605a57]">Total Raised</p>
                 </div>
@@ -125,7 +173,7 @@ export function FundraisePage() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-[#37322f] font-serif">
-                    {startupsWithFundraising.reduce((acc, s) => acc + s.backers, 0)}
+                    {allStartups.reduce((acc, s) => acc + s.backers, 0)}
                   </div>
                   <p className="text-sm text-[#605a57]">Total Backers</p>
                 </div>
@@ -246,6 +294,66 @@ export function FundraisePage() {
                       <p className="text-sm text-[#605a57]">Hackathon</p>
                     </div>
                   </div>
+
+                  {/* GitHub Repository */}
+                  {startup.githubRepo && (
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-blue-900 flex items-center gap-1">
+                          <ExternalLink className="w-3 h-3" />
+                          GitHub Repository:
+                        </span>
+                      </div>
+                      <a 
+                        href={`https://github.com/${startup.githubRepo}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-800 underline break-all block"
+                      >
+                        {startup.githubRepo}
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Blockchain Verification */}
+                  {startup.explorerLink && (
+                    <div className="bg-purple-50 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-purple-900 flex items-center gap-1">
+                          <Shield className="w-3 h-3" />
+                          Verified On-Chain
+                        </span>
+                        <Badge variant="outline" className="text-xs border-purple-300 text-purple-700">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Nautilus Proof
+                        </Badge>
+                      </div>
+                      <a 
+                        href={startup.explorerLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-purple-600 hover:text-purple-800 underline flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        View on Sui Explorer
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Wallet Address */}
+                  {startup.walletAddress && (
+                    <div className="bg-secondary/50 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-[#37322f]">Owner Wallet:</span>
+                        <Badge variant="outline" className="text-xs">
+                          {startup.verified ? '✅ Verified' : '⚠️ Pending'}
+                        </Badge>
+                      </div>
+                      <code className="text-xs text-[#605a57] break-all block">
+                        {startup.walletAddress}
+                      </code>
+                    </div>
+                  )}
 
                   {/* Donation Input */}
                   <div className="space-y-3">
