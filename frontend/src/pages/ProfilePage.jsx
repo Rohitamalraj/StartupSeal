@@ -24,15 +24,40 @@ export function ProfilePage() {
     const fetchStartup = async () => {
       try {
         setLoading(true)
-        const data = await getStartupSealById(id)
-        setStartup(data)
         
-        // Fetch certificates from Walrus if available
-        if (data.certificate_blob_ids && data.certificate_blob_ids.length > 0) {
-          setLoadingCerts(true)
-          const certs = await fetchCertificateData(data.certificate_blob_ids)
-          setCertificates(certs)
-          setLoadingCerts(false)
+        // Try to fetch from localStorage first (for recently created seals)
+        const localData = localStorage.getItem(`startup_seal_${id}`)
+        if (localData) {
+          console.log('✅ Found startup data in localStorage')
+          const data = JSON.parse(localData)
+          setStartup(data)
+          
+          // Fetch certificates from Walrus if available
+          if (data.certificate_blob_ids && data.certificate_blob_ids.length > 0) {
+            setLoadingCerts(true)
+            const certs = await fetchCertificateData(data.certificate_blob_ids)
+            setCertificates(certs)
+            setLoadingCerts(false)
+          }
+          setLoading(false)
+          return
+        }
+        
+        // Fallback: Try to fetch from blockchain (on-chain data)
+        try {
+          const data = await getStartupSealById(id)
+          setStartup(data)
+          
+          // Fetch certificates from Walrus if available
+          if (data.certificate_blob_ids && data.certificate_blob_ids.length > 0) {
+            setLoadingCerts(true)
+            const certs = await fetchCertificateData(data.certificate_blob_ids)
+            setCertificates(certs)
+            setLoadingCerts(false)
+          }
+        } catch (apiError) {
+          console.error('Failed to fetch from API:', apiError)
+          setError('Startup seal not found. It may take a few moments for on-chain data to be indexed.')
         }
       } catch (err) {
         console.error('Failed to fetch startup:', err)
@@ -99,11 +124,12 @@ export function ProfilePage() {
   }
 
   // Map blockchain data to display format
+  const trustScore = startup.overall_trust_score || startup.trust_score || 0
   const displayData = {
     name: startup.startup_name || startup.name,
     hackathon: startup.hackathon_name || "N/A",
     description: startup.description || "No description available",
-    trustScore: startup.overall_trust_score || startup.trust_score || 0,
+    trustScore: trustScore,
     hackathonScore: startup.hackathon_score || 0,
     githubScore: startup.github_score || 0,
     aiScore: startup.ai_consistency_score || 0,
@@ -115,7 +141,9 @@ export function ProfilePage() {
     githubRepo: startup.github_repo || "",
     owner: startup.owner || "",
     category: startup.category || "DeFi",
-    riskLevel: startup.overall_trust_score >= 85 ? "low" : startup.overall_trust_score >= 70 ? "medium" : "high",
+    riskLevel: trustScore >= 85 ? "low" : trustScore >= 70 ? "medium" : "high",
+    explorerLink: startup.explorer_link || `https://suiscan.xyz/testnet/tx/${id}`,
+    transactionDigest: startup.transaction_digest || id,
   }
 
   const timelineIcons = {
@@ -232,6 +260,42 @@ export function ProfilePage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Transaction Info Card */}
+        {displayData.explorerLink && (
+          <Card className="shadow-lg border-purple-200 bg-purple-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-4">
+                <Shield className="w-6 h-6 text-purple-600 mt-1" />
+                <div className="flex-1 space-y-2">
+                  <h3 className="font-semibold text-purple-900 flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5" />
+                    Verified On-Chain
+                  </h3>
+                  <p className="text-sm text-purple-700">
+                    This startup seal is permanently recorded on the Sui blockchain and cannot be altered.
+                  </p>
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-purple-600 font-medium">Transaction ID:</span>
+                      <code className="text-xs text-purple-800 bg-white px-2 py-1 rounded break-all">
+                        {displayData.transactionDigest}
+                      </code>
+                    </div>
+                    <a 
+                      href={displayData.explorerLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-purple-600 hover:text-purple-800 underline font-medium"
+                    >
+                      🔗 View on Sui Explorer
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Trust Score Breakdown */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -407,6 +471,95 @@ export function ProfilePage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Fundraising Section */}
+        <Card className="shadow-lg border-2 border-primary/20">
+          <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl flex items-center gap-2">
+                  <DollarSign className="w-6 h-6 text-primary" />
+                  Support This Startup
+                </CardTitle>
+                <p className="text-[#605a57] mt-2">
+                  Help {displayData.name} reach their goals. Your contribution makes a difference!
+                </p>
+              </div>
+              <Badge variant={displayData.trustScore >= 70 ? "success" : "warning"} className="text-lg px-4 py-2">
+                {displayData.trustScore >= 70 ? "✅ Verified" : "⚠️ Pending"}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Wallet Information */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-[#37322f] mb-2 flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    Startup Wallet Address
+                  </h3>
+                  <div className="bg-secondary p-3 rounded-lg">
+                    <code className="text-xs break-all block">{displayData.owner}</code>
+                  </div>
+                  <p className="text-xs text-[#605a57] mt-2">
+                    💡 Send SUI tokens directly to this address to support the project
+                  </p>
+                </div>
+                
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-[#37322f] mb-2">How to Donate:</h4>
+                  <ol className="text-sm text-[#605a57] space-y-1 list-decimal list-inside">
+                    <li>Copy the wallet address above</li>
+                    <li>Open your Sui wallet</li>
+                    <li>Send SUI tokens to the address</li>
+                    <li>Your contribution is recorded on-chain!</li>
+                  </ol>
+                </div>
+              </div>
+
+              {/* Trust Score & Verification */}
+              <div className="space-y-4">
+                <div className="bg-gradient-to-br from-purple-50 to-blue-50 p-6 rounded-lg">
+                  <div className="text-center mb-4">
+                    <div className={`text-6xl font-bold ${getScoreColor(displayData.trustScore)}`}>
+                      {displayData.trustScore}
+                    </div>
+                    <p className="text-[#605a57] font-semibold">Trust Score</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#605a57]">Hackathon:</span>
+                      <span className="font-semibold">{displayData.hackathonScore}/100</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#605a57]">GitHub:</span>
+                      <span className="font-semibold">{displayData.githubScore}/100</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#605a57]">AI Analysis:</span>
+                      <span className="font-semibold">{displayData.aiScore}/100</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#605a57]">Documents:</span>
+                      <span className="font-semibold">{displayData.documentScore}/100</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  onClick={() => window.location.href = '/fundraise'}
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  View All Fundraising Startups
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
