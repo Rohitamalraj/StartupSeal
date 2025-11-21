@@ -12,6 +12,7 @@ class WalrusService {
 
   /**
    * Store file on Walrus and get CID
+   * Uses real Walrus Testnet API v1/blobs endpoint
    */
   async storeFile(filePath, metadata = {}) {
     try {
@@ -19,7 +20,7 @@ class WalrusService {
       const fileHash = await this.calculateFileHash(filePath);
 
       // Check if file already exists
-      if (walrusConfig.integrity.checkExisting) {
+      if (walrusConfig.integrity && walrusConfig.integrity.checkExisting) {
         const existing = await this.checkExistingFile(fileHash);
         if (existing) {
           console.log('File already exists on Walrus');
@@ -33,40 +34,63 @@ class WalrusService {
         }
       }
 
-      // Upload to Walrus
-      const formData = new FormData();
-      formData.append('file', fs.createReadStream(filePath));
-      formData.append('metadata', JSON.stringify({
-        ...metadata,
-        uploadTimestamp: new Date().toISOString(),
-        originalHash: fileHash
-      }));
+      // Upload to Walrus Testnet using v1/blobs endpoint
+      const fileBuffer = fs.readFileSync(filePath);
+      const stats = fs.statSync(filePath);
+      const epochs = 5; // Store for 5 epochs
 
-      const response = await axios.post(
-        `${this.storageEndpoint}/store`,
-        formData,
+      console.log(`📤 Uploading to Walrus Testnet (${Math.round(stats.size / 1024)} KB)...`);
+      console.log(`   Publisher: https://publisher.walrus-testnet.walrus.space`);
+      console.log(`   Storage epochs: ${epochs}`);
+
+      const response = await axios.put(
+        `https://publisher.walrus-testnet.walrus.space/v1/blobs?epochs=${epochs}`,
+        fileBuffer,
         {
           headers: {
-            ...formData.getHeaders(),
+            'Content-Type': 'application/octet-stream'
           },
-          maxContentLength: walrusConfig.storage.maxFileSize,
-          maxBodyLength: walrusConfig.storage.maxFileSize,
+          maxContentLength: walrusConfig.storage ? walrusConfig.storage.maxFileSize : Infinity,
+          maxBodyLength: walrusConfig.storage ? walrusConfig.storage.maxFileSize : Infinity
         }
       );
 
+      console.log('✅ Walrus response:', JSON.stringify(response.data, null, 2));
+
+      // Parse Walrus response (newlyCreated or alreadyCertified)
+      let blobId = null;
+      let blobObject = null;
+
+      if (response.data.newlyCreated) {
+        blobId = response.data.newlyCreated.blobObject.blobId;
+        blobObject = response.data.newlyCreated.blobObject;
+        console.log(`✓ New blob created on Walrus`);
+        console.log(`  Blob ID: ${blobId}`);
+        console.log(`  Sui Object ID: ${blobObject.id}`);
+        console.log(`  End Epoch: ${blobObject.storage.endEpoch}`);
+      } else if (response.data.alreadyCertified) {
+        blobId = response.data.alreadyCertified.blobId;
+        console.log(`✓ Blob already exists on Walrus (deduplicated)`);
+        console.log(`  Blob ID: ${blobId}`);
+        console.log(`  End Epoch: ${response.data.alreadyCertified.endEpoch}`);
+      }
+
       // Generate Proof of Integrity (POI)
-      const poi = await this.generateProofOfIntegrity(fileHash, response.data.cid);
+      const poi = await this.generateProofOfIntegrity(fileHash, blobId);
 
       return {
         success: true,
-        cid: response.data.cid,
+        cid: blobId,
+        blobId: blobId,
         hash: fileHash,
         proofOfIntegrity: poi,
-        alreadyExists: false,
-        walrusUrl: `walrus://${response.data.cid}`
+        alreadyExists: !!response.data.alreadyCertified,
+        walrusUrl: blobId ? `https://aggregator.walrus-testnet.walrus.space/v1/blobs/${blobId}` : null,
+        suiObjectId: blobObject?.id,
+        endEpoch: blobObject?.storage?.endEpoch || response.data.alreadyCertified?.endEpoch
       };
     } catch (error) {
-      console.error('Walrus storage error:', error);
+      console.error('Walrus storage error:', error.response?.data || error.message);
       return {
         success: false,
         error: error.message

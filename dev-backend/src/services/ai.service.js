@@ -1,8 +1,8 @@
-const githubCollector = require('./collectors/github.collector');
-const hackathonCollector = require('./collectors/hackathon.collector');
-const founderCollector = require('./collectors/founder.collector');
-const fundingCollector = require('./collectors/funding.collector');
-const nautilusService = require('./nautilus.service');
+// const githubCollector = require('./collectors/github.collector');
+// const hackathonCollector = require('./collectors/hackathon.collector');
+// const founderCollector = require('./collectors/founder.collector');
+// const fundingCollector = require('./collectors/funding.collector');
+const nautilusService = require('./nautilus.enclave.service');
 const walrusService = require('./walrus.service');
 const { exec } = require('child_process');
 const { promisify } = require('util');
@@ -60,18 +60,12 @@ class AIService {
       mediaFiles
     } = projectData;
 
+    // TODO: Re-enable collectors when collector files are available
     // Collect in parallel for efficiency
-    const [
-      githubData,
-      hackathonData,
-      founderData,
-      fundingData
-    ] = await Promise.all([
-      githubRepo ? githubCollector.collectRepoStats(githubRepo) : null,
-      hackathonName ? hackathonCollector.verifyHackathonWin(projectName, hackathonName) : null,
-      founderInfo ? founderCollector.collectFounderProfile(founderInfo) : null,
-      companyName ? fundingCollector.collectFundingInfo(companyName, website) : null
-    ]);
+    const githubData = null; // await githubCollector.collectRepoStats(githubRepo)
+    const hackathonData = null; // await hackathonCollector.verifyHackathonWin(projectName, hackathonName)
+    const founderData = null; // await founderCollector.collectFounderProfile(founderInfo)
+    const fundingData = null; // await fundingCollector.collectFundingInfo(companyName, website)
 
     return {
       github: githubData,

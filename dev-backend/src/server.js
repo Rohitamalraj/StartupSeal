@@ -3,14 +3,15 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const connectDB = require('./config/database');
+// const connectDB = require('./config/database');
 
 // Import routes
-const projectRoutes = require('./routes/project.routes');
+// const projectRoutes = require('./routes/project.routes');
 const aiRoutes = require('./routes/ai.routes');
 const verifyRoutes = require('./routes/verify.routes');
-const dataRoutes = require('./routes/data.routes');
-const authRoutes = require('./routes/auth.routes');
+const githubRoutes = require('./routes/github.routes');
+// const dataRoutes = require('./routes/data.routes');
+// const authRoutes = require('./routes/auth.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,23 +37,24 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Database connection (non-blocking)
-connectDB();
+// connectDB();
 
 // Health check
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    service: 'Trust Oracle AI Backend'
+    service: 'StartupSeal - Document Verification Backend with AI Gatekeeper'
   });
 });
 
 // API Routes
-app.use('/api/projects', projectRoutes);
+// app.use('/api/projects', projectRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/verify', verifyRoutes);
-app.use('/api/data', dataRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/github', githubRoutes);
+// app.use('/api/data', dataRoutes);
+// app.use('/api/auth', authRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -72,9 +74,21 @@ app.use((req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Trust Oracle AI Backend running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+  console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`🚀 StartupSeal Document Verification Backend`);
+  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`📡 Port: ${PORT}`);
+  console.log(`🌐 Health: http://localhost:${PORT}/health`);
+  console.log(`🔐 AI Gatekeeper: Enabled`);
+  console.log(`💾 Walrus Storage: Testnet`);
+  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`\nAPI Endpoints:`);
+  console.log(`  POST   /api/verify/media-upload         - Upload single file with AI check`);
+  console.log(`  POST   /api/verify/media-upload-batch   - Upload multiple files with AI check`);
+  console.log(`  POST   /api/verify/media                - Verify media by CID`);
+  console.log(`  POST   /api/verify/integrity            - Check file integrity`);
+  console.log(`  GET    /api/verify/file/:cid            - Get file info from Walrus`);
+  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 });
 
 module.exports = app;

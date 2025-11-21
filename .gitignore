@@ -1,8 +1,9 @@
-# Environment files
+# Environment files with secrets
 .env
 .env.local
 .env.*.local
 *.env
+!.env.example
 
 # Dependencies
 node_modules/
@@ -28,6 +29,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Temporary files
+dev-backend/uploads/
+*.tmp
+*.temp
+
 # OS files
 .DS_Store
 Thumbs.db
@@ -52,9 +58,13 @@ pip-delete-this-directory.txt
 # Sui
 .sui/
 sui.keystore
-
 # Secrets
 *.key
 *.pem
 *.secret
 secrets/
+
+# Unused directories (not part of active codebase)
+nautilus-agent/
+walrus/
+brillance-saa-s-landing-page/

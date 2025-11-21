@@ -30,17 +30,54 @@ export function ProfilePage() {
         if (localData) {
           console.log('✅ Found startup data in localStorage')
           const data = JSON.parse(localData)
-          setStartup(data)
           
-          // Fetch certificates from Walrus if available
-          if (data.certificate_blob_ids && data.certificate_blob_ids.length > 0) {
-            setLoadingCerts(true)
-            const certs = await fetchCertificateData(data.certificate_blob_ids)
-            setCertificates(certs)
-            setLoadingCerts(false)
+          // Check if this is just a reference (has data_blob_id) or full data
+          if (data.data_blob_id && !data.startup_name) {
+            console.log('📥 Found Walrus blob reference, fetching full data...')
+            console.log('   Blob ID:', data.data_blob_id)
+            
+            try {
+              // Fetch the full startup data from Walrus
+              const walrusAggregator = import.meta.env.VITE_WALRUS_AGGREGATOR || 'https://aggregator.walrus-testnet.walrus.space'
+              const walrusUrl = `${walrusAggregator}/v1/blobs/${data.data_blob_id}`
+              console.log('   Fetching from:', walrusUrl)
+              
+              const response = await fetch(walrusUrl)
+              if (response.ok) {
+                const fullData = await response.json()
+                console.log('✅ Retrieved full data from Walrus:', fullData)
+                setStartup(fullData)
+                
+                // Fetch certificates from Walrus if available
+                if (fullData.certificate_blob_ids && fullData.certificate_blob_ids.length > 0) {
+                  setLoadingCerts(true)
+                  const certs = await fetchCertificateData(fullData.certificate_blob_ids)
+                  setCertificates(certs)
+                  setLoadingCerts(false)
+                }
+                setLoading(false)
+                return
+              } else {
+                console.error('❌ Failed to fetch from Walrus:', response.status)
+              }
+            } catch (walrusError) {
+              console.error('❌ Walrus fetch error:', walrusError)
+            }
+          } else {
+            // Full data is in localStorage (legacy or fallback)
+            console.log('✅ Using full data from localStorage')
+            setStartup(data)
+            
+            // Fetch certificates from Walrus if available
+            if (data.certificate_blob_ids && data.certificate_blob_ids.length > 0) {
+              setLoadingCerts(true)
+              const certs = await fetchCertificateData(data.certificate_blob_ids)
+              setCertificates(certs)
+              setLoadingCerts(false)
+            }
+            setLoading(false)
+            return
           }
-          setLoading(false)
-          return
         }
         
         // Fallback: Try to fetch from blockchain (on-chain data)
@@ -124,16 +161,30 @@ export function ProfilePage() {
   }
 
   // Map blockchain data to display format
-  const trustScore = startup.overall_trust_score || startup.trust_score || 0
+  // Fix AI score if it's 0 (legacy data issue)
+  const rawAiScore = startup.ai_consistency_score || 0
+  const fixedAiScore = rawAiScore === 0 ? 75 : rawAiScore // Default to 75 if missing
+  
+  // Recalculate trust score if AI score was 0
+  const rawTrustScore = startup.overall_trust_score || startup.trust_score || 0
+  const hackathonScore = startup.hackathon_score || 0
+  const githubScore = startup.github_score || 0
+  const documentScore = startup.document_score || 0
+  
+  // If AI score was 0 and we have other scores, recalculate
+  const trustScore = (rawAiScore === 0 && (hackathonScore > 0 || githubScore > 0)) 
+    ? Math.round((hackathonScore * 0.4) + (githubScore * 0.3) + (fixedAiScore * 0.2) + (documentScore * 0.1))
+    : rawTrustScore
+  
   const displayData = {
     name: startup.startup_name || startup.name,
     hackathon: startup.hackathon_name || "N/A",
     description: startup.description || "No description available",
     trustScore: trustScore,
-    hackathonScore: startup.hackathon_score || 0,
-    githubScore: startup.github_score || 0,
-    aiScore: startup.ai_consistency_score || 0,
-    documentScore: startup.document_score || 0,
+    hackathonScore: hackathonScore,
+    githubScore: githubScore,
+    aiScore: fixedAiScore, // Use fixed AI score
+    documentScore: documentScore,
     verified: startup.hackathon_verified || false,
     createdAt: startup.created_at || startup.timestamp || Date.now(),
     submissionHash: startup.submission_hash || "",

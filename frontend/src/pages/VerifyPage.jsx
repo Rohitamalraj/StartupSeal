@@ -399,13 +399,63 @@ export function VerifyPage() {
     setUploadStatus(prev => ({ ...prev, loading: true, currentStep: 'Generating trust score...', error: '' }))
     
     try {
-      // Upload certificates to Walrus if any
+      // Upload certificates to Walrus with AI legitimacy check if any
       let certificateBlobIds = []
       if (files.length > 0) {
-        setUploadStatus(prev => ({ ...prev, currentStep: `Uploading ${files.length} certificate(s) to Walrus...` }))
-        // TODO: Implement Walrus upload
-        // For now, simulate upload
+        setUploadStatus(prev => ({ 
+          ...prev, 
+          currentStep: `🔍 AI Gatekeeper checking ${files.length} file(s)...` 
+        }))
+        
         console.log('📤 Uploading certificates:', files.map(f => f.name))
+        
+        // Upload files with AI legitimacy check
+        const formData = new FormData()
+        files.forEach(file => {
+          formData.append('files', file)
+        })
+        
+        try {
+          setUploadStatus(prev => ({ 
+            ...prev, 
+            currentStep: `📤 Uploading ${files.length} file(s) to Walrus...` 
+          }))
+          
+          const uploadResponse = await fetch('http://localhost:5000/api/verify/media-upload-batch', {
+            method: 'POST',
+            body: formData
+          })
+          
+          if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json()
+            throw new Error(errorData.error || 'File upload failed')
+          }
+          
+          const uploadResult = await uploadResponse.json()
+          console.log('✅ Upload successful:', uploadResult)
+          
+          // Extract blob IDs
+          certificateBlobIds = uploadResult.results
+            .filter(r => r.success)
+            .map(r => r.blobId)
+          
+          console.log('✅ Walrus Blob IDs:', certificateBlobIds)
+          
+          // Show legitimacy results
+          const rejectedFiles = uploadResult.results.filter(r => !r.success)
+          if (rejectedFiles.length > 0) {
+            console.warn('⚠️ Some files were rejected:', rejectedFiles)
+            alert(`⚠️ ${rejectedFiles.length} file(s) rejected by AI gatekeeper:\n${rejectedFiles.map(r => `- ${r.filename}: ${r.error}`).join('\n')}`)
+          }
+          
+          setUploadStatus(prev => ({ 
+            ...prev, 
+            currentStep: `✅ ${certificateBlobIds.length} file(s) uploaded to Walrus` 
+          }))
+        } catch (uploadError) {
+          console.error('Upload error:', uploadError)
+          throw new Error(`File upload failed: ${uploadError.message}`)
+        }
       }
 
       // Step 1: AI Analysis of the startup application
@@ -429,7 +479,7 @@ export function VerifyPage() {
 
       console.log('📤 Sending to AI analysis endpoint:', analysisPayload)
       
-      const analysisResponse = await fetch(`${API_BASE_URL}/api/analyze`, {
+      const analysisResponse = await fetch(`${API_BASE_URL}/api/ai/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(analysisPayload)
@@ -442,20 +492,16 @@ export function VerifyPage() {
       const aiAnalysisResult = await analysisResponse.json()
       console.log('🤖 AI Analysis Result:', aiAnalysisResult)
 
-      // Extract AI-generated scores
+      // Extract AI-generated scores from the analysis endpoint
       const hackathonScore = aiAnalysisResult.hackathon_score || (formData.hackathonName ? 70 : 0)
       const githubScore = aiAnalysisResult.github_score || 
         (githubAuth.repoVerification ? 
           Math.round((githubAuth.repoVerification.ownership_score * 0.6) + (githubAuth.repoVerification.activity_score * 0.4)) : 50)
-      // Use Trust Oracle score as the AI score (Real Python ML analysis)
-      const aiScore = trustOracleResult?.score || 0
-      // Document score: 0 if no documents uploaded, 80 if documents uploaded
-      const documentScore = certificateBlobIds.length > 0 ? 80 : 0
+      // Use AI score from analysis result (75/100 from backend)
+      const aiScore = aiAnalysisResult.ai_score || 75
+      // Document score from analysis result
+      const documentScore = aiAnalysisResult.certificate_score || (certificateBlobIds.length > 0 ? 80 : 0)
 
-      // 🚨 USE TRUST ORACLE SCORE (Real Python ML AI) instead of recalculating
-      // Trust Oracle returns the authoritative AI-analyzed score
-      const trustOracleScore = aiScore
-      console.log('🎯 Using Trust Oracle Score:', trustOracleScore, '(Real AI from Python ML)')
       console.log('📊 Individual Scores:', { hackathonScore, githubScore, aiScore, documentScore })
       console.log('📄 Certificates uploaded:', certificateBlobIds.length, '- Score:', documentScore)
 
@@ -541,7 +587,7 @@ export function VerifyPage() {
           }
         },
         {
-          onSuccess: (result) => {
+          onSuccess: async (result) => {
             // 🎯 Use Trust Oracle score (Real Python ML AI) instead of recalculating
             // Trust Oracle returns the authoritative AI-analyzed score from dev2 backend
             const overallScore = trustOracleResult?.score || Math.round(
@@ -600,7 +646,7 @@ ${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️
 👉 Click OK to view your profile and start fundraising!
             `.trim()
 
-            // Store startup data in localStorage for profile page
+            // Store startup data on Walrus instead of localStorage
             const startupData = {
               startup_name: formData.startupName,
               github_repo: formData.githubRepo,
@@ -623,8 +669,38 @@ ${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️
               trust_oracle_result: trustOracleResult
             }
             
-            localStorage.setItem(`startup_seal_${result.digest}`, JSON.stringify(startupData))
-            console.log('💾 Stored startup data in localStorage:', startupData)
+            // Upload startup data to Walrus
+            console.log('💾 Uploading startup data to Walrus...')
+            try {
+              const dataBlob = new Blob([JSON.stringify(startupData)], { type: 'application/json' })
+              const dataFormData = new FormData()
+              dataFormData.append('file', dataBlob, `startup_${result.digest}.json`)
+              
+              const walrusUpload = await fetch('http://localhost:5000/api/verify/media-upload', {
+                method: 'POST',
+                body: dataFormData
+              })
+              
+              if (walrusUpload.ok) {
+                const walrusResult = await walrusUpload.json()
+                console.log('✅ Startup data stored on Walrus:', walrusResult.blobId)
+                startupData.data_blob_id = walrusResult.blobId
+                
+                // Store blob ID in localStorage as fallback (not the full data)
+                localStorage.setItem(`startup_seal_${result.digest}`, JSON.stringify({
+                  data_blob_id: walrusResult.blobId,
+                  transaction_digest: result.digest,
+                  created_at: Date.now()
+                }))
+              } else {
+                console.warn('⚠️ Failed to store on Walrus, using localStorage fallback')
+                localStorage.setItem(`startup_seal_${result.digest}`, JSON.stringify(startupData))
+              }
+            } catch (walrusError) {
+              console.error('❌ Walrus storage error:', walrusError)
+              // Fallback to localStorage
+              localStorage.setItem(`startup_seal_${result.digest}`, JSON.stringify(startupData))
+            }
 
             setUploadStatus(prev => ({
               ...prev,
