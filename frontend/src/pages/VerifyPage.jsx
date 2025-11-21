@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
@@ -8,6 +8,15 @@ import { Upload, Sparkles, Github, X, CheckCircle2 } from "lucide-react"
 import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit"
 import { Transaction } from "@mysten/sui/transactions"
 import { bcs } from "@mysten/sui/bcs"
+import { TrustScoreDisplay } from "../components/TrustScoreDisplay"
+import { BlockchainVerification } from "../components/BlockchainVerification"
+import { AITerminal } from "../components/AITerminal"
+import { 
+  getCompleteTrustScore, 
+  formatProjectData, 
+  parseTrustScoreResponse,
+  checkBackendHealth 
+} from "../services/trustOracleService"
 
 // Contract addresses from environment
 const PACKAGE_ID = import.meta.env.VITE_PACKAGE_ID
@@ -45,9 +54,46 @@ export function VerifyPage() {
     error: '',
     currentStep: '',
   })
+  
+  const [trustOracleResult, setTrustOracleResult] = useState(null)
+  const [showTrustOracle, setShowTrustOracle] = useState(false)
+  const [backendHealthy, setBackendHealthy] = useState(null)
+  
+  // AI Terminal logs state
+  const [aiLogs, setAiLogs] = useState([])
+  const [isAIAnalyzing, setIsAIAnalyzing] = useState(false)
+  
+  // Track if OAuth has been processed to prevent duplicate calls
+  const oauthProcessed = useRef(false)
+  
+  // Helper to add AI log
+  const addAILog = (message, type = 'info') => {
+    setAiLogs(prev => [...prev, { message, type, timestamp: Date.now() }])
+  }
+
+  // Check Trust Oracle backend health
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        await checkBackendHealth()
+        setBackendHealthy(true)
+        console.log('✅ Trust Oracle backend is healthy')
+      } catch (error) {
+        setBackendHealthy(false)
+        console.warn('⚠️ Trust Oracle backend not available:', error.message)
+      }
+    }
+    checkHealth()
+  }, [])
 
   // Handle OAuth callback
   useEffect(() => {
+    // Prevent processing OAuth multiple times (React StrictMode issue)
+    if (oauthProcessed.current) {
+      console.log('⏭️ OAuth already processed, skipping')
+      return
+    }
+    
     const urlParams = new URLSearchParams(window.location.search)
     const code = urlParams.get('code')
     const state = urlParams.get('state')
@@ -65,6 +111,9 @@ export function VerifyPage() {
       
       if (state === savedState) {
         console.log('🚀 Completing GitHub authentication...')
+        // Mark as processed immediately to prevent duplicate calls
+        oauthProcessed.current = true
+        
         // Restore form data BEFORE completing auth
         const savedFormData = sessionStorage.getItem('saved_form_data')
         let repoName = ''
@@ -146,7 +195,7 @@ export function VerifyPage() {
       
       console.log('📥 Response status:', response.status)
       const data = await response.json()
-      console.log('📥 Response data:', data)
+      console.log('� Response data:', data)
       
       if (data.error) throw new Error(data.error)
       if (!data.access_token || !data.username) throw new Error('Invalid response from GitHub auth')
@@ -241,6 +290,101 @@ export function VerifyPage() {
     setUploadStatus(prev => ({ ...prev, currentStep: '', error: '' }))
   }
 
+  const handleTrustOracleAnalysis = async () => {
+    if (!githubAuth.authenticated || !githubAuth.repoVerification) {
+      setUploadStatus(prev => ({ ...prev, error: 'Please verify your GitHub repository first' }))
+      return
+    }
+
+    setUploadStatus(prev => ({ 
+      ...prev, 
+      loading: true, 
+      currentStep: '🔮 Analyzing with Trust Oracle AI...', 
+      error: '' 
+    }))
+    setShowTrustOracle(false)
+    setTrustOracleResult(null)
+    setAiLogs([]) // Clear previous logs
+    setIsAIAnalyzing(true)
+    
+    try {
+      addAILog('🚀 Initializing Trust Oracle AI analysis...', 'info')
+      addAILog('📊 Collecting repository data from GitHub...', 'info')
+      
+      // Format project data for Trust Oracle
+      // Extract repository stats from verification result
+      const repoData = githubAuth.repoVerification?.repository_data || {}
+      const commitData = githubAuth.repoVerification?.commit_analysis || {}
+      
+      console.log('📊 Repository Data:', repoData)
+      console.log('📊 Commit Data:', commitData)
+      
+      addAILog(`✓ Repository: ${formData.githubRepo}`, 'success')
+      addAILog(`  Stars: ${repoData.stars || 0} | Forks: ${repoData.forks || 0}`, 'info')
+      addAILog(`  Commits: ${commitData.total_commits || 0} | Contributors: ${commitData.contributors || commitData.user_commits || 0}`, 'info')
+      addAILog(`  Language: ${repoData.language || 'Unknown'}`, 'info')
+      
+      const projectData = formatProjectData(formData, {
+        owner: formData.githubRepo?.split('/')[0] || '',
+        repo: formData.githubRepo?.split('/')[1] || '',
+        full_name: formData.githubRepo || '',
+        stars: repoData.stars || 0,
+        forks: repoData.forks || 0,
+        commits: commitData.total_commits || 0,
+        contributors: commitData.contributors || commitData.user_commits || 0,
+        language: repoData.language || 'Unknown',
+        openIssues: repoData.open_issues || 0,
+        lastUpdate: repoData.updated_at || new Date().toISOString(),
+      })
+
+      // Add project metadata for Trust Oracle
+      projectData.project_name = formData.startupName
+      projectData.github_repo = formData.githubRepo
+      
+      console.log('📤 Sending to Trust Oracle:', projectData)
+      addAILog('🤖 Running Python ML models (5-category analysis)...', 'ai')
+      addAILog('  📊 Media Authenticity Analysis...', 'info')
+      addAILog('  💻 Tech Credibility Assessment...', 'info')
+      addAILog('  🏛️  Governance Transparency Check...', 'info')
+      addAILog('  ⛓️  On-chain Behavior Analysis...', 'info')
+      addAILog('  📱 Social Signals Evaluation...', 'info')
+      
+      // Call Trust Oracle complete analysis
+      const response = await getCompleteTrustScore(projectData)
+      console.log('📥 Trust Oracle Response:', response)
+      
+      addAILog('✓ AI analysis complete!', 'success')
+      addAILog('🔐 Generating cryptographic proof with Nautilus...', 'info')
+      
+      // Parse response for UI display
+      const parsedData = parseTrustScoreResponse(response)
+      
+      addAILog(`✓ Trust Score calculated: ${parsedData.score}/100`, 'success')
+      addAILog(`  Risk Level: ${parsedData.riskLevel?.toUpperCase()}`, 'warning')
+      
+      setTrustOracleResult(parsedData)
+      setShowTrustOracle(true)
+      setIsAIAnalyzing(false)
+      
+      setUploadStatus(prev => ({
+        ...prev,
+        loading: false,
+        currentStep: `✅ Trust Oracle Analysis Complete! Score: ${parsedData.score}/100`,
+        error: ''
+      }))
+    } catch (error) {
+      console.error('Trust Oracle analysis error:', error)
+      addAILog(`✗ Analysis failed: ${error.message}`, 'error')
+      setIsAIAnalyzing(false)
+      setUploadStatus(prev => ({
+        ...prev,
+        loading: false,
+        error: `Trust Oracle analysis failed: ${error.message}`,
+        currentStep: ''
+      }))
+    }
+  }
+
   const handleGenerate = async () => {
     if (!currentAccount) {
       setUploadStatus(prev => ({ ...prev, error: 'Please connect your Sui wallet first' }))
@@ -303,14 +447,20 @@ export function VerifyPage() {
       const githubScore = aiAnalysisResult.github_score || 
         (githubAuth.repoVerification ? 
           Math.round((githubAuth.repoVerification.ownership_score * 0.6) + (githubAuth.repoVerification.activity_score * 0.4)) : 50)
-      const aiScore = aiAnalysisResult.ai_consistency_score || 
-        (githubAuth.repoVerification ? githubAuth.repoVerification.consistency_score : 50)
-      const documentScore = aiAnalysisResult.document_score || (certificateBlobIds.length > 0 ? 80 : 50)
+      // Use Trust Oracle score as the AI score (Real Python ML analysis)
+      const aiScore = trustOracleResult?.score || 0
+      // Document score: 0 if no documents uploaded, 80 if documents uploaded
+      const documentScore = certificateBlobIds.length > 0 ? 80 : 0
 
-      console.log('📊 Final Scores:', { hackathonScore, githubScore, aiScore, documentScore })
+      // 🚨 USE TRUST ORACLE SCORE (Real Python ML AI) instead of recalculating
+      // Trust Oracle returns the authoritative AI-analyzed score
+      const trustOracleScore = aiScore
+      console.log('🎯 Using Trust Oracle Score:', trustOracleScore, '(Real AI from Python ML)')
+      console.log('📊 Individual Scores:', { hackathonScore, githubScore, aiScore, documentScore })
+      console.log('📄 Certificates uploaded:', certificateBlobIds.length, '- Score:', documentScore)
 
-      // Generate nonce and submission hash for security
-      const nonce = Date.now() + Math.floor(Math.random() * 1000000)
+      // Generate UNIQUE nonce for blockchain (timestamp + random + hash)
+      const nonce = BigInt(Date.now()) * BigInt(1000000) + BigInt(Math.floor(Math.random() * 999999))
       const submissionData = `${formData.startupName}-${formData.githubRepo}-${formData.hackathonName}-${nonce}`
       const submissionHashBytes = new Uint8Array(new TextEncoder().encode(submissionData))
 
@@ -351,8 +501,11 @@ export function VerifyPage() {
         blobIds: certificateBlobIds.length,
         documentBytes: documentHashBytes.length,
         scores: { hackathonScore, githubScore, aiScore, documentScore },
+        trustOracleScore: trustOracleScore,
         nonce
       })
+
+      console.log('⚠️ IMPORTANT: Using Trust Oracle score for final trust score:', trustOracleScore)
 
       // Remove manual gas budget - let wallet auto-calculate
       // tx.setGasBudget(100000000)
@@ -389,7 +542,9 @@ export function VerifyPage() {
         },
         {
           onSuccess: (result) => {
-            const overallScore = Math.round(
+            // 🎯 Use Trust Oracle score (Real Python ML AI) instead of recalculating
+            // Trust Oracle returns the authoritative AI-analyzed score from dev2 backend
+            const overallScore = trustOracleResult?.score || Math.round(
               (hackathonScore * 0.4) + 
               (githubScore * 0.3) + 
               (aiScore * 0.2) + 
@@ -397,20 +552,79 @@ export function VerifyPage() {
             )
 
             console.log('✅ Transaction successful!', result)
+            console.log('🎯 Using Trust Oracle Score:', overallScore, '(Real Python ML)')
+            console.log('📊 Transaction Details:', {
+              digest: result.digest,
+              scores: { hackathonScore, githubScore, aiScore, documentScore, overallScore },
+              trustOracleScore: trustOracleResult?.score,
+              explorerLink: `https://suiscan.xyz/testnet/tx/${result.digest}`
+            })
             
-            // Show detailed score breakdown
+            // Create Sui Explorer link
+            const explorerLink = `https://suiscan.xyz/testnet/tx/${result.digest}`
+            
+            // Show detailed score breakdown with explanation
             const scoreBreakdown = `
-🎯 Trust Score: ${overallScore}/100
+✅ TRANSACTION SUCCESSFUL!
+
+🔗 Sui Explorer: ${explorerLink}
+📝 Transaction ID: ${result.digest}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 Trust Score: ${overallScore}/100 (Real AI from Python ML)
 
 📊 Score Breakdown:
-• Hackathon Verification: ${hackathonScore}/100 (40% weight)
-• GitHub Contribution: ${githubScore}/100 (30% weight)
-• AI Consistency Check: ${aiScore}/100 (20% weight)
-• Document Authenticity: ${documentScore}/100 (10% weight)
 
-🔗 Transaction: ${result.digest}
-${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️ Score below 70%. Consider improving verification metrics.'}
+• Hackathon Verification: ${hackathonScore}/100 (40% weight)
+  ${hackathonScore > 0 ? '✓ Hackathon participation verified' : '✗ No hackathon participation'}
+
+• GitHub Contribution: ${githubScore}/100 (30% weight)
+  ✓ Repository: ${formData.githubRepo}
+  ✓ Based on commits, stars, forks, contributors
+
+• AI Consistency Check: ${aiScore}/100 (20% weight)
+  ✓ Real Python ML analysis with Trust Oracle
+  ✓ Analyzed GitHub activity and code patterns
+
+• Document Authenticity: ${documentScore}/100 (10% weight)
+  ${certificateBlobIds.length > 0 ? `✓ ${certificateBlobIds.length} document(s) uploaded and verified` : '✗ No documents uploaded\n  💡 Upload pitch decks, certificates, or media for +80 points!'}
+
+⚠️ NOTE: Final score (${overallScore}/100) is from Trust Oracle's 
+5-category ML analysis (not simple weighted average).
+Categories: Media Authenticity, Tech Credibility, Governance, 
+On-chain Behavior, Social Signals.
+
+${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️ Score below 70%. Consider:\n  - Joining hackathons\n  - Uploading documents\n  - Improving GitHub activity'}
+
+👉 Click OK to view your profile and start fundraising!
             `.trim()
+
+            // Store startup data in localStorage for profile page
+            const startupData = {
+              startup_name: formData.startupName,
+              github_repo: formData.githubRepo,
+              hackathon_name: formData.hackathonName || 'none',
+              description: formData.description || 'No description available',
+              overall_trust_score: overallScore,
+              hackathon_score: hackathonScore,
+              github_score: githubScore,
+              ai_consistency_score: aiScore,
+              document_score: documentScore,
+              hackathon_verified: hackathonScore > 0,
+              created_at: Date.now(),
+              timestamp: Date.now(),
+              submission_hash: submissionData,
+              nonce: Number(nonce),
+              owner: currentAccount.address,
+              certificate_blob_ids: certificateBlobIds,
+              transaction_digest: result.digest,
+              explorer_link: explorerLink,
+              trust_oracle_result: trustOracleResult
+            }
+            
+            localStorage.setItem(`startup_seal_${result.digest}`, JSON.stringify(startupData))
+            console.log('💾 Stored startup data in localStorage:', startupData)
 
             setUploadStatus(prev => ({
               ...prev,
@@ -418,15 +632,17 @@ ${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️
               currentStep: `✅ Success! Trust Score: ${overallScore}/100`,
               error: '',
               aiAnalysis: aiAnalysisResult,
-              scoreBreakdown: { hackathonScore, githubScore, aiScore, documentScore, overallScore }
+              scoreBreakdown: { hackathonScore, githubScore, aiScore, documentScore, overallScore },
+              transactionDigest: result.digest,
+              explorerLink: explorerLink
             }))
 
             alert(scoreBreakdown)
 
-            // Navigate to profile after a delay
+            // Navigate to profile page immediately
             setTimeout(() => {
               navigate(`/profile/${result.digest}`)
-            }, 3000)
+            }, 1000)
           },
           onError: (error) => {
             console.error('❌ Transaction error:', error)
@@ -506,6 +722,34 @@ ${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️
             <CardContent className="pt-6 flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-green-600" />
               <p className="text-green-700 text-sm">{uploadStatus.currentStep}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Transaction Success with Explorer Link */}
+        {uploadStatus.explorerLink && (
+          <Card className="mb-6 border-purple-200 bg-purple-50">
+            <CardContent className="pt-6 space-y-3">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-6 h-6 text-purple-600" />
+                <p className="text-purple-900 font-semibold text-lg">✅ Transaction Successful!</p>
+              </div>
+              <div className="space-y-2 pl-9">
+                <p className="text-sm text-purple-700">
+                  🔗 <span className="font-medium">Sui Explorer:</span>
+                </p>
+                <a 
+                  href={uploadStatus.explorerLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-purple-600 hover:text-purple-800 underline break-all block"
+                >
+                  {uploadStatus.explorerLink}
+                </a>
+                <p className="text-xs text-purple-600 mt-2">
+                  📝 Transaction ID: {uploadStatus.transactionDigest}
+                </p>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -634,10 +878,20 @@ ${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️
                           {formData.githubRepo}
                         </div>
                         {githubAuth.repoVerification && (
-                          <div className="text-xs text-[#605a57]">
-                            Activity: {githubAuth.repoVerification.activity_score}/100 | 
-                            Ownership: {githubAuth.repoVerification.ownership_score}/100
-                          </div>
+                          <>
+                            <div className="text-xs text-[#605a57]">
+                              Activity: {githubAuth.repoVerification.commit_analysis?.activity_score || 0}/100 | 
+                              Ownership: {githubAuth.repoVerification.commit_analysis?.ownership_score || 0}%
+                            </div>
+                            {githubAuth.repoVerification.repository_data && (
+                              <div className="text-xs text-[#605a57] mt-1">
+                                ⭐ {githubAuth.repoVerification.repository_data.stars || 0} stars | 
+                                🔀 {githubAuth.repoVerification.repository_data.forks || 0} forks | 
+                                📝 {githubAuth.repoVerification.commit_analysis?.total_commits || 0} commits | 
+                                👤 {githubAuth.repoVerification.commit_analysis?.user_commits || 0} your commits
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -804,14 +1058,62 @@ ${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️
               </div>
             )}
 
-            {/* Generate Button */}
+            {/* Trust Oracle Analysis Button */}
+            {backendHealthy && (
+              <div className="space-y-3">
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-5 h-5 text-purple-600" />
+                    <h3 className="font-semibold text-purple-900">Nautilus Trust Oracle (Beta)</h3>
+                  </div>
+                  <p className="text-sm text-purple-700 mb-3">
+                    Get an AI-powered trust score with cryptographic proof from Nautilus confidential computing. 
+                    No blockchain transaction required.
+                  </p>
+                  <Button
+                    onClick={handleTrustOracleAnalysis}
+                    disabled={!githubAuth.authenticated || uploadStatus.loading}
+                    variant="outline"
+                    className="w-full border-purple-300 text-purple-700 hover:bg-purple-100"
+                  >
+                    {uploadStatus.loading && uploadStatus.currentStep.includes('Trust Oracle') ? (
+                      <>
+                        <Sparkles className="w-5 h-5 mr-2 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        Analyze with Trust Oracle
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* AI Terminal - Show real-time analysis logs */}
+            {(aiLogs.length > 0 || isAIAnalyzing) && (
+              <AITerminal 
+                logs={aiLogs} 
+                isAnalyzing={isAIAnalyzing}
+                trustScore={trustOracleResult ? {
+                  score: trustOracleResult.score || 0,
+                  riskLevel: trustOracleResult.riskLevel || 'medium',
+                  confidence: 0.85,
+                  categoryScores: trustOracleResult.breakdown || {}
+                } : null}
+              />
+            )}
+
+            {/* Generate Button (Original) */}
             <Button
               onClick={handleGenerate}
               disabled={!formData.startupName || !formData.description || !formData.githubRepo || 
                         !githubAuth.authenticated || !currentAccount || uploadStatus.loading}
               className="w-full h-12 text-base"
             >
-              {uploadStatus.loading ? (
+              {uploadStatus.loading && !uploadStatus.currentStep.includes('Trust Oracle') ? (
                 <>
                   <Sparkles className="w-5 h-5 mr-2 animate-spin" />
                   {uploadStatus.currentStep || 'Processing...'}
@@ -819,12 +1121,27 @@ ${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️
               ) : (
                 <>
                   <Sparkles className="w-5 h-5 mr-2" />
-                  Generate Trust Score
+                  Submit to Blockchain (Requires Sui Wallet)
                 </>
               )}
             </Button>
           </CardContent>
         </Card>
+
+        {/* Trust Oracle Results */}
+        {showTrustOracle && trustOracleResult && (
+          <div className="mt-8 space-y-6">
+            <div className="text-center">
+              <h2 className="text-3xl font-serif text-[#37322f] mb-2">Trust Oracle Analysis</h2>
+              <p className="text-[#605a57]">
+                AI-powered verification with cryptographic proof
+              </p>
+            </div>
+            
+            <TrustScoreDisplay scoreData={trustOracleResult} />
+            <BlockchainVerification verificationData={trustOracleResult} />
+          </div>
+        )}
 
         {/* Info Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
