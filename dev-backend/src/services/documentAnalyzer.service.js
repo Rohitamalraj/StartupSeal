@@ -3,7 +3,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const ExifParser = require('exif-parser');
 
-const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY || 'AIzaSyBcTGbY30VA0hp5BonB9BKwjnST9QIaV9s';
+const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY;
 const VISION_API_URL = 'https://vision.googleapis.com/v1/images:annotate';
 
 class DocumentAnalyzerService {

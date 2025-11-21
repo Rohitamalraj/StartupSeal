@@ -10,6 +10,7 @@ const rateLimit = require('express-rate-limit');
 const aiRoutes = require('./routes/ai.routes');
 const verifyRoutes = require('./routes/verify.routes');
 const githubRoutes = require('./routes/github.routes');
+const sealsRoutes = require('./routes/seals.routes');
 // const dataRoutes = require('./routes/data.routes');
 // const authRoutes = require('./routes/auth.routes');
 
@@ -53,6 +54,7 @@ app.get('/health', (req, res) => {
 app.use('/api/ai', aiRoutes);
 app.use('/api/verify', verifyRoutes);
 app.use('/api/github', githubRoutes);
+app.use('/api/seals', sealsRoutes);
 // app.use('/api/data', dataRoutes);
 // app.use('/api/auth', authRoutes);
 

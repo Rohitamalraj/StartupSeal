@@ -14,69 +14,28 @@ export function FundraisePage() {
   const navigate = useNavigate()
   const currentAccount = useCurrentAccount()
   const storeStartups = useStore((state) => state.startups)
+  const fetchStartups = useStore((state) => state.fetchStartups)
   const categories = useStore((state) => state.categories)
   
   const [selectedCategory, setSelectedCategory] = useState("All Categories")
   const [searchQuery, setSearchQuery] = useState("")
   const [donationAmounts, setDonationAmounts] = useState({})
   const [processingDonations, setProcessingDonations] = useState({})
-  const [localStorageStartups, setLocalStorageStartups] = useState([])
 
-  // Fetch startups from localStorage
+  // Fetch startups from blockchain on mount
   useEffect(() => {
-    const loadLocalStorageStartups = () => {
-      const startups = []
-      // Iterate through localStorage to find startup seals
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && key.startsWith('startup_seal_')) {
-          try {
-            const data = JSON.parse(localStorage.getItem(key))
-            startups.push({
-              id: data.transaction_digest,
-              name: data.startup_name,
-              description: data.description,
-              trustScore: data.overall_trust_score,
-              hackathonScore: data.hackathon_score,
-              githubScore: data.github_score,
-              aiScore: data.ai_consistency_score,
-              documentScore: data.document_score,
-              hackathon: data.hackathon_name,
-              githubRepo: data.github_repo,
-              verified: data.hackathon_verified,
-              riskLevel: data.overall_trust_score >= 85 ? "Low" : data.overall_trust_score >= 70 ? "Medium" : "High",
-              walletAddress: data.owner,
-              category: "DeFi",
-              logo: "https://api.dicebear.com/7.x/shapes/svg?seed=" + data.startup_name,
-              explorerLink: data.explorer_link,
-              transactionDigest: data.transaction_digest,
-              trustOracleResult: data.trust_oracle_result,
-              createdAt: data.created_at,
-              // Add fundraising data
-              fundraiseGoal: Math.floor(Math.random() * 450000) + 50000,
-              fundraiseRaised: Math.floor(Math.random() * 200000) + 10000,
-              backers: Math.floor(Math.random() * 150) + 10,
-              daysLeft: Math.floor(Math.random() * 60) + 1,
-            })
-          } catch (error) {
-            console.error('Error parsing localStorage data:', error)
-          }
-        }
-      }
-      setLocalStorageStartups(startups)
-    }
+    fetchStartups()
+  }, [fetchStartups])
 
-    loadLocalStorageStartups()
-  }, [])
-
-  // Combine store startups with localStorage startups
-  const allStartups = [...storeStartups.map(startup => ({
+  // Add fundraising-specific data to startups
+  const allStartups = storeStartups.map(startup => ({
     ...startup,
+    // Add mock fundraising data (these could be fetched from blockchain in the future)
     fundraiseGoal: Math.floor(Math.random() * 450000) + 50000,
     fundraiseRaised: Math.floor(Math.random() * 200000) + 10000,
     backers: Math.floor(Math.random() * 150) + 10,
     daysLeft: Math.floor(Math.random() * 60) + 1,
-  })), ...localStorageStartups]
+  }))
 
   const filteredStartups = allStartups.filter(startup => {
     const matchesCategory = selectedCategory === "All Categories" || startup.category === selectedCategory
