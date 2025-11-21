@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-const AGGREGATOR = import.meta.env.VITE_WALRUS_AGGREGATOR || 'https://aggregator.walrus-testnet.walrus.space';
-const PUBLISHER = import.meta.env.VITE_WALRUS_PUBLISHER || 'https://publisher.walrus-testnet.walrus.space';
+// Updated Walrus endpoints (Nov 2025) - old endpoints deprecated
+const AGGREGATOR = import.meta.env.VITE_WALRUS_AGGREGATOR || 'https://wal-aggregator-testnet.staketab.org';
+const PUBLISHER = import.meta.env.VITE_WALRUS_PUBLISHER || 'https://wal-publisher-testnet.staketab.org';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 /**
