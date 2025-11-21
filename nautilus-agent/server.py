@@ -382,8 +382,8 @@ def analyze_startup():
                 user_response = requests.get('https://api.github.com/user', headers=headers)
                 username = user_response.json().get('login', '')
                 
-                # Analyze commits
-                analysis = verifier.analyze_repository(
+                # Analyze commits using correct method name
+                analysis = verifier.analyze_commit_pattern(
                     repo_full_name=data.get('github_repo'),
                     username=username
                 )
@@ -396,30 +396,44 @@ def analyze_startup():
             except Exception as e:
                 print(f"   ⚠️ Could not calculate GitHub score: {e}")
         
-        # AI Consistency Score (20% weight)
-        ai_consistency_score = 75  # Default good score
+        # AI Analysis - Use score from frontend's Trust Oracle call
+        # Frontend already called Trust Oracle with proper GitHub data
+        # We just use the consistency score from GitHub analysis here
+        ai_consistency_score = 75  # Default fallback
+        ai_analysis_details = None
+        
+        # Extract consistency from GitHub verification if available
         if data.get('github_access_token') and data.get('github_repo'):
             try:
-                # Use consistency score from commit analysis if available
                 verifier = GitHubCommitVerifier(data.get('github_access_token'))
                 headers = {'Authorization': f'token {data.get("github_access_token")}'}
                 user_response = requests.get('https://api.github.com/user', headers=headers)
                 username = user_response.json().get('login', '')
                 
-                analysis = verifier.analyze_repository(
+                analysis = verifier.analyze_commit_pattern(
                     repo_full_name=data.get('github_repo'),
                     username=username
                 )
                 if analysis:
                     ai_consistency_score = analysis.get('consistency_score', 75)
-                    print(f"   AI consistency score: {ai_consistency_score}")
+                    print(f"   📊 Consistency score from GitHub analysis: {ai_consistency_score}/100")
             except Exception as e:
-                print(f"   ⚠️ Using default AI score: {e}")
+                print(f"   ⚠️ Could not calculate consistency: {e}")
+        
+        # Note: Real AI analysis already done by frontend via Trust Oracle
+        # This backend focuses on GitHub verification and document scoring
+        dev2_url = os.getenv('DEV2_BACKEND_URL', 'http://localhost:5000')
+        try:
+            # REMOVED duplicate AI call - frontend handles Trust Oracle
+            pass
+        except Exception as e:
+            print(f"   ℹ️ Skipping duplicate AI call (already done by frontend)")
         
         # Document Score (10% weight)
         certificate_blob_ids = data.get('certificate_blob_ids', [])
-        document_score = 80 if certificate_blob_ids and len(certificate_blob_ids) > 0 else 50
-        print(f"   Document score: {document_score}")
+        # 0 points if no documents, 80 points if documents uploaded
+        document_score = 80 if certificate_blob_ids and len(certificate_blob_ids) > 0 else 0
+        print(f"   Document score: {document_score} (uploaded: {len(certificate_blob_ids) if certificate_blob_ids else 0} documents)")
         
         # Calculate overall trust score
         overall_score = round(
@@ -444,7 +458,9 @@ def analyze_startup():
                 'hackathon_verified': bool(hackathon_name),
                 'github_analyzed': bool(data.get('github_access_token')),
                 'documents_provided': len(certificate_blob_ids),
-                'metadata': metadata
+                'metadata': metadata,
+                'ai_category_scores': ai_analysis_details,
+                'ai_backend_used': ai_analysis_details is not None
             }
         }
         
@@ -494,7 +510,11 @@ if __name__ == '__main__':
     print(f"✅ Enhanced Features: {ENHANCED_FEATURES}")
     print(f"✅ GitHub OAuth: {bool(os.getenv('GITHUB_CLIENT_ID'))}")
     print(f"✅ OpenAI API: {bool(os.getenv('OPENAI_API_KEY'))}")
-    print(f"✅ Package ID: {os.getenv('TRUST_ORACLE_PACKAGE_ID')[:20]}...")
+    package_id = os.getenv('TRUST_ORACLE_PACKAGE_ID')
+    if package_id:
+        print(f"✅ Package ID: {package_id[:20]}...")
+    else:
+        print(f"⚠️  Package ID: Not configured")
     print()
     
     app.run(host='0.0.0.0', port=port, debug=True)
