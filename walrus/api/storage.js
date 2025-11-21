@@ -4,8 +4,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 // Walrus endpoints
-const AGGREGATOR = process.env.AGGREGATOR || 'https://aggregator.walrus-testnet.walrus.space';
-const PUBLISHER = process.env.PUBLISHER || 'https://publisher.walrus-testnet.walrus.space';
+const AGGREGATOR = process.env.AGGREGATOR || 'https://wal-aggregator-testnet.staketab.org';
+const PUBLISHER = process.env.PUBLISHER || 'https://wal-publisher-testnet.staketab.org';
 
 /**
  * Upload a single file to Walrus
