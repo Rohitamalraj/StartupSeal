@@ -685,21 +685,11 @@ ${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️
                 const walrusResult = await walrusUpload.json()
                 console.log('✅ Startup data stored on Walrus:', walrusResult.blobId)
                 startupData.data_blob_id = walrusResult.blobId
-                
-                // Store blob ID in localStorage as fallback (not the full data)
-                localStorage.setItem(`startup_seal_${result.digest}`, JSON.stringify({
-                  data_blob_id: walrusResult.blobId,
-                  transaction_digest: result.digest,
-                  created_at: Date.now()
-                }))
               } else {
-                console.warn('⚠️ Failed to store on Walrus, using localStorage fallback')
-                localStorage.setItem(`startup_seal_${result.digest}`, JSON.stringify(startupData))
+                console.warn('⚠️ Failed to store on Walrus')
               }
             } catch (walrusError) {
               console.error('❌ Walrus storage error:', walrusError)
-              // Fallback to localStorage
-              localStorage.setItem(`startup_seal_${result.digest}`, JSON.stringify(startupData))
             }
 
             setUploadStatus(prev => ({
@@ -716,6 +706,7 @@ ${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️
             alert(scoreBreakdown)
 
             // Navigate to profile page immediately
+            // Note: Data will be fetched from blockchain via backend API
             setTimeout(() => {
               navigate(`/profile/${result.digest}`)
             }, 1000)

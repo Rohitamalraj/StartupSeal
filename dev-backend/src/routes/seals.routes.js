@@ -312,6 +312,89 @@ router.get('/search', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/seals/user/:walletAddress
+ * Fetch all seals created by a specific wallet address
+ */
+router.get('/user/:walletAddress', async (req, res) => {
+  try {
+    const { walletAddress } = req.params;
+    console.log(`📥 Fetching seals for wallet: ${walletAddress}`);
+
+    // Query all SealMinted events
+    const events = await suiClient.queryEvents({
+      query: {
+        MoveEventType: `${PACKAGE_ID}::startup_seal::SealMinted`
+      },
+      limit: 50,
+      order: 'descending'
+    });
+
+    // Fetch full objects and filter by owner
+    const sealPromises = events.data.map(async (event) => {
+      try {
+        const sealId = event.parsedJson.seal_id;
+        const sealObject = await suiClient.getObject({
+          id: sealId,
+          options: {
+            showContent: true,
+            showOwner: true,
+            showType: true
+          }
+        });
+
+        if (!sealObject.data) return null;
+
+        const content = sealObject.data.content.fields;
+        
+        // Check if this seal belongs to the wallet
+        if (content.owner.toLowerCase() !== walletAddress.toLowerCase()) {
+          return null;
+        }
+
+        const vectorToString = (vec) => {
+          if (!vec) return '';
+          if (typeof vec === 'string') return vec;
+          if (Array.isArray(vec)) {
+            return Buffer.from(vec).toString('utf-8');
+          }
+          return String(vec);
+        };
+
+        return {
+          id: sealId,
+          name: vectorToString(content.startup_name),
+          owner: content.owner,
+          trustScore: parseInt(content.overall_trust_score) || 0,
+          timestamp: parseInt(content.timestamp) || Date.now()
+        };
+      } catch (error) {
+        return null;
+      }
+    });
+
+    const userSeals = (await Promise.all(sealPromises)).filter(seal => seal !== null);
+
+    console.log(`✅ Found ${userSeals.length} seals for ${walletAddress}`);
+
+    res.json({
+      success: true,
+      count: userSeals.length,
+      seals: userSeals,
+      walletAddress
+    });
+
+  } catch (error) {
+    console.error('❌ Failed to fetch user seals:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch user seals',
+      message: error.message,
+      seals: []
+    });
+  }
+});
+
 // Helper function to check localStorage format (for backward compatibility)
 async function getFromLocalStorage(transactionDigest) {
   // This simulates checking if the ID is a transaction digest

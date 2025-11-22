@@ -31,80 +31,24 @@ export function ProfilePage() {
       try {
         setLoading(true)
         
-        // Try to fetch from localStorage first (for recently created seals)
-        const localData = localStorage.getItem(`startup_seal_${id}`)
-        if (localData) {
-          console.log('✅ Found startup data in localStorage')
-          const data = JSON.parse(localData)
-          
-          // Check if this is just a reference (has data_blob_id) or full data
-          if (data.data_blob_id && !data.startup_name) {
-            console.log('📥 Found Walrus blob reference, fetching full data...')
-            console.log('   Blob ID:', data.data_blob_id)
-            
-            try {
-              // Fetch the full startup data from Walrus
-              const walrusAggregator = import.meta.env.VITE_WALRUS_AGGREGATOR || 'https://aggregator.walrus-testnet.walrus.space'
-              const walrusUrl = `${walrusAggregator}/v1/blobs/${data.data_blob_id}`
-              console.log('   Fetching from:', walrusUrl)
-              
-              const response = await fetch(walrusUrl)
-              if (response.ok) {
-                const fullData = await response.json()
-                console.log('✅ Retrieved full data from Walrus:', fullData)
-                setStartup(fullData)
-                
-                // Fetch certificates from Walrus if available
-                if (fullData.certificate_blob_ids && fullData.certificate_blob_ids.length > 0) {
-                  setLoadingCerts(true)
-                  const certs = await fetchCertificateData(fullData.certificate_blob_ids)
-                  setCertificates(certs)
-                  setLoadingCerts(false)
-                }
-                setLoading(false)
-                return
-              } else {
-                console.error('❌ Failed to fetch from Walrus:', response.status)
-              }
-            } catch (walrusError) {
-              console.error('❌ Walrus fetch error:', walrusError)
-            }
-          } else {
-            // Full data is in localStorage (legacy or fallback)
-            console.log('✅ Using full data from localStorage')
-            setStartup(data)
-            
-            // Fetch certificates from Walrus if available
-            if (data.certificate_blob_ids && data.certificate_blob_ids.length > 0) {
-              setLoadingCerts(true)
-              const certs = await fetchCertificateData(data.certificate_blob_ids)
-              setCertificates(certs)
-              setLoadingCerts(false)
-            }
-            setLoading(false)
-            return
-          }
+        console.log('📥 Fetching startup from backend/blockchain:', id)
+        
+        // Fetch directly from backend API (which queries blockchain)
+        const data = await getStartupSealById(id)
+        setStartup(data)
+        
+        // Fetch certificates from Walrus if available
+        if (data.certificate_blob_ids && data.certificate_blob_ids.length > 0) {
+          setLoadingCerts(true)
+          const certs = await fetchCertificateData(data.certificate_blob_ids)
+          setCertificates(certs)
+          setLoadingCerts(false)
         }
         
-        // Fallback: Try to fetch from blockchain (on-chain data)
-        try {
-          const data = await getStartupSealById(id)
-          setStartup(data)
-          
-          // Fetch certificates from Walrus if available
-          if (data.certificate_blob_ids && data.certificate_blob_ids.length > 0) {
-            setLoadingCerts(true)
-            const certs = await fetchCertificateData(data.certificate_blob_ids)
-            setCertificates(certs)
-            setLoadingCerts(false)
-          }
-        } catch (apiError) {
-          console.error('Failed to fetch from API:', apiError)
-          setError('Startup seal not found. It may take a few moments for on-chain data to be indexed.')
-        }
+        console.log('✅ Startup data loaded from backend')
       } catch (err) {
-        console.error('Failed to fetch startup:', err)
-        setError(err.message)
+        console.error('❌ Failed to fetch startup:', err)
+        setError('Startup seal not found. It may take a few moments for on-chain data to be indexed.')
       } finally {
         setLoading(false)
       }

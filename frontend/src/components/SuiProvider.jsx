@@ -18,7 +18,17 @@ export function SuiProvider({ children }) {
       <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
         <WalletProvider 
           autoConnect
-          preferredWallets={['Sui Wallet', 'Suiet', 'Ethos Wallet', 'Martian Wallet', 'Surf Wallet']}
+          preferredWallets={[
+            'Suiet',           // Suiet Wallet (also known as Slush)
+            'Sui Wallet',      // Official Sui Wallet
+            'Ethos Wallet',    // Ethos Wallet
+            'Martian Wallet',  // Martian Sui Wallet
+            'Surf Wallet',     // Surf Wallet
+            'Glass Wallet',    // Glass Wallet
+            'Morphis Wallet',
+            'Slush Wallet'   // Morphis Wallet
+          ]}
+          enableUnsafeBurner={false}
         >
           {children}
         </WalletProvider>
