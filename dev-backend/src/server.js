@@ -24,7 +24,23 @@ const path = require('path');
 app.use(helmet({
   contentSecurityPolicy: false // Allow inline scripts for demo frontend
 }));
-app.use(cors());
+
+// CORS configuration for production
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? [
+        'https://startupseal-frontend.vercel.app', // Your frontend URL
+        'https://startup-seal-frontend.vercel.app',
+        'https://walrus-startup-seal.vercel.app',
+        // Add your actual frontend domain here
+      ]
+    : ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
