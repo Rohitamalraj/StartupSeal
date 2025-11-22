@@ -22,66 +22,12 @@ export function LeaderboardPage() {
     fetchLeaderboard 
   } = useStore()
 
-  // Use mock data for now
-  const mockStartups = [
-    {
-      id: "mock-1",
-      name: "DeFiChain Protocol",
-      logo: "🔷",
-      category: "DeFi",
-      hackathon: "ETHGlobal Istanbul 2024",
-      trustScore: 92,
-      riskLevel: "Low",
-      lastVerified: "2024-11-15",
-      description: "Decentralized lending protocol with cross-chain capabilities"
-    },
-    {
-      id: "mock-2",
-      name: "ZKProof Identity",
-      logo: "🛡️",
-      category: "Infrastructure",
-      hackathon: "ETHDenver 2024",
-      trustScore: 88,
-      riskLevel: "Low",
-      lastVerified: "2024-11-18",
-      description: "Zero-knowledge identity verification for Web3"
-    },
-    {
-      id: "mock-3",
-      name: "NFT Marketplace Pro",
-      logo: "🎨",
-      category: "NFT",
-      hackathon: "NFT NYC 2024",
-      trustScore: 85,
-      riskLevel: "Low",
-      lastVerified: "2024-11-10",
-      description: "Next-gen NFT marketplace with royalty protection"
-    },
-    {
-      id: "mock-4",
-      name: "GameFi Arena",
-      logo: "🎮",
-      category: "Gaming",
-      hackathon: "Starknet Resolve 2024",
-      trustScore: 78,
-      riskLevel: "Medium",
-      lastVerified: "2024-11-20",
-      description: "Play-to-earn gaming platform on Sui"
-    },
-    {
-      id: "mock-5",
-      name: "DAO Governance Tool",
-      logo: "🏛️",
-      category: "DAO",
-      hackathon: "Sui Overflow 2024",
-      trustScore: 82,
-      riskLevel: "Low",
-      lastVerified: "2024-11-12",
-      description: "Decentralized governance framework for DAOs"
-    }
-  ]
+  useEffect(() => {
+    console.log('📊 Leaderboard page: Fetching startups from blockchain...')
+    fetchLeaderboard()
+  }, [fetchLeaderboard])
 
-  const filteredStartups = mockStartups
+  const filteredStartups = startups
     .filter(startup => {
       const matchesHackathon = selectedHackathon === "All Hackathons" || startup.hackathon === selectedHackathon
       const matchesCategory = selectedCategory === "All Categories" || startup.category === selectedCategory
@@ -209,17 +155,21 @@ export function LeaderboardPage() {
                   {filteredStartups.map((startup, index) => (
                   <TableRow key={startup.id} className="hover:bg-muted/50 cursor-pointer">
                     <TableCell>
-                      <div className="font-semibold text-lg">
+                      <div className="font-semibold">
                         {getRankIcon(index + 1)}
                       </div>
                     </TableCell>
                     <TableCell>
                       <Link to={`/profile/${startup.id}`} className="hover:underline">
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl">{startup.logo}</span>
-                          <div>
-                            <div className="font-semibold text-[#37322f]">{startup.name}</div>
-                            <div className="text-xs text-[#605a57]">{startup.description.slice(0, 50)}...</div>
+                          <img
+                            src={startup.logo}
+                            alt={startup.name}
+                            className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-[#37322f] truncate">{startup.name}</div>
+                            <div className="text-xs text-[#605a57] truncate">{startup.description?.slice(0, 60)}...</div>
                           </div>
                         </div>
                       </Link>
@@ -227,26 +177,26 @@ export function LeaderboardPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <TrendingUp className={`w-4 h-4 ${getScoreColor(startup.trustScore)}`} />
-                        <span className={`font-bold text-lg ${getScoreColor(startup.trustScore)}`}>
+                        <span className={`font-bold ${getScoreColor(startup.trustScore)}`}>
                           {startup.trustScore}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm text-[#605a57]">{startup.hackathon}</div>
+                      <div className="text-sm text-[#605a57] truncate">{startup.hackathon || 'N/A'}</div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{startup.category}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={getRiskBadgeVariant(startup.riskLevel)}>
-                        {startup.riskLevel.toUpperCase()}
+                        {startup.riskLevel?.toUpperCase() || 'N/A'}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 text-sm text-[#605a57]">
                         <Calendar className="w-4 h-4" />
-                        {startup.lastVerified}
+                        {startup.lastVerified || new Date().toISOString().split('T')[0]}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -265,29 +215,33 @@ export function LeaderboardPage() {
               <Card className="hover:shadow-md transition-shadow">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
-                    <div className="text-2xl font-semibold">{getRankIcon(index + 1)}</div>
-                    <div className="flex-1">
+                    <div className="text-xl font-semibold">{getRankIcon(index + 1)}</div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="text-3xl">{startup.logo}</span>
-                        <div>
-                          <h3 className="font-semibold text-[#37322f]">{startup.name}</h3>
+                        <img
+                          src={startup.logo}
+                          alt={startup.name}
+                          className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-[#37322f] truncate">{startup.name}</h3>
                           <Badge variant="outline" className="mt-1">{startup.category}</Badge>
                         </div>
                       </div>
-                      <p className="text-sm text-[#605a57] mb-3">{startup.description}</p>
+                      <p className="text-sm text-[#605a57] mb-3 line-clamp-2">{startup.description}</p>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-[#605a57]">Trust Score:</span>
-                          <span className={`font-bold text-lg ${getScoreColor(startup.trustScore)}`}>
+                          <span className={`font-bold ${getScoreColor(startup.trustScore)}`}>
                             {startup.trustScore}
                           </span>
                         </div>
                         <Badge variant={getRiskBadgeVariant(startup.riskLevel)}>
-                          {startup.riskLevel.toUpperCase()} RISK
+                          {startup.riskLevel?.toUpperCase() || 'N/A'} RISK
                         </Badge>
                       </div>
-                      <div className="text-xs text-[#605a57] mt-2">
-                        {startup.hackathon} • Last verified: {startup.lastVerified}
+                      <div className="text-xs text-[#605a57] mt-2 truncate">
+                        {startup.hackathon || 'N/A'} • Last verified: {startup.lastVerified || new Date().toISOString().split('T')[0]}
                       </div>
                     </div>
                   </div>

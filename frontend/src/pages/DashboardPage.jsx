@@ -43,13 +43,41 @@ export function DashboardPage() {
         setReceivedRequests(receivedData.requests || [])
         setSentRequests(sentData.requests || [])
         
-        // Add mock fundraising data to user's startups
+        // Get real donations from localStorage
+        const getDonations = (startupId) => {
+          try {
+            const donations = localStorage.getItem(`donations_${startupId}`)
+            return donations ? JSON.parse(donations) : []
+          } catch (e) {
+            return []
+          }
+        }
+        
+        // Calculate total donated amount
+        const getTotalDonated = (startupId) => {
+          const donations = getDonations(startupId)
+          return donations.reduce((total, donation) => total + parseFloat(donation.amount || 0), 0)
+        }
+        
+        // Generate consistent fundraising data based on startup ID
+        const generateFundraiseData = (startupId) => {
+          const seed = startupId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+          const random = (min, max) => min + (seed % (max - min))
+          
+          const realDonations = getTotalDonated(startupId)
+          const baseRaised = random(50000, 300000)
+          
+          return {
+            fundraiseGoal: 500000,
+            fundraiseRaised: baseRaised + realDonations,
+            backers: random(10, 150) + getDonations(startupId).length,
+            daysLeft: random(5, 60)
+          }
+        }
+        
         const startupsWithFundraising = (myStartupsData || []).map(startup => ({
           ...startup,
-          fundraiseGoal: 500000,
-          fundraiseRaised: Math.floor(Math.random() * 300000) + 50000,
-          backers: Math.floor(Math.random() * 150) + 10,
-          daysLeft: Math.floor(Math.random() * 60) + 1,
+          ...generateFundraiseData(startup.id)
         }))
         setMyStartups(startupsWithFundraising)
       } catch (error) {

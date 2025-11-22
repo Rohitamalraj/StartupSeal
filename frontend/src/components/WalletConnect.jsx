@@ -52,22 +52,24 @@ export function WalletConnect() {
             {currentAccount.address.slice(0, 6)}...{currentAccount.address.slice(-4)}
           </span>
         </div>
-        {userSeals.length > 0 && (
-          <Button 
-            variant="ghost" 
-            size="sm"
-            className="text-[#37322f] hover:bg-[#37322f]/5 gap-1"
-            onClick={handleProfileClick}
-          >
-            <User className="w-4 h-4" />
-            <span className="hidden md:inline">My Profile</span>
-          </Button>
-        )}
+        <Button 
+          variant="outline"
+          size="sm"
+          className="text-[#37322f] bg-white hover:bg-[#37322f]/5 border-[#e0dedb] gap-2 rounded-full px-4"
+          onClick={handleProfileClick}
+          title={userSeals.length > 0 ? "View your startup profile" : "Create your startup profile"}
+        >
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#37322f] to-[#605a57] flex items-center justify-center">
+            <User className="w-4 h-4 text-white" />
+          </div>
+          <span className="hidden md:inline font-medium">My Profile</span>
+        </Button>
         <Button 
           variant="ghost" 
           size="icon"
           className="text-[#37322f] hover:bg-[#37322f]/5"
           onClick={() => disconnect()}
+          title="Disconnect wallet"
         >
           <LogOut className="w-4 h-4" />
         </Button>

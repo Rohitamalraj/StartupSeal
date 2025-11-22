@@ -202,7 +202,11 @@ export function AdminPage() {
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3">
-                            <span className="text-2xl">{startup.logo}</span>
+                            <img
+                              src={startup.logo}
+                              alt={startup.name}
+                              className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                            />
                             <div>
                               <h4 className="font-semibold text-[#37322f]">{startup.name}</h4>
                               <Badge variant="danger">HIGH RISK</Badge>
@@ -265,7 +269,11 @@ export function AdminPage() {
                         className="flex items-center justify-between p-3 bg-white border border-[#e0dedb] rounded-lg"
                       >
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl">{startup.logo}</span>
+                          <img
+                            src={startup.logo}
+                            alt={startup.name}
+                            className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                          />
                           <div>
                             <div className="font-medium text-[#37322f]">{startup.name}</div>
                             <div className="text-sm text-[#605a57]">

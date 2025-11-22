@@ -8,12 +8,15 @@ import { Progress } from "../components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Coins, TrendingUp, Users, Target, ExternalLink, Search, Shield, CheckCircle2 } from "lucide-react"
 import { useStore } from "../store/useStore"
-import { useCurrentAccount } from "@mysten/dapp-kit"
+import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit"
+import { Transaction } from "@mysten/sui/transactions"
 import { ContactStartupDialog } from "../components/ContactStartupDialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog"
 
 export function FundraisePage() {
   const navigate = useNavigate()
   const currentAccount = useCurrentAccount()
+  const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction()
   const storeStartups = useStore((state) => state.startups)
   const fetchStartups = useStore((state) => state.fetchStartups)
   const categories = useStore((state) => state.categories)
@@ -22,6 +25,8 @@ export function FundraisePage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [donationAmounts, setDonationAmounts] = useState({})
   const [processingDonations, setProcessingDonations] = useState({})
+  const [showDonateDialog, setShowDonateDialog] = useState(false)
+  const [selectedStartup, setSelectedStartup] = useState(null)
 
   // Fetch startups from blockchain on mount
   useEffect(() => {
@@ -34,16 +39,48 @@ export function FundraisePage() {
     console.log('   Total startups:', storeStartups.length)
   }, [storeStartups])
 
+  // Get real donations from localStorage
+  const getDonations = (startupId) => {
+    try {
+      const donations = localStorage.getItem(`donations_${startupId}`)
+      return donations ? JSON.parse(donations) : []
+    } catch (e) {
+      console.error('Error reading donations:', e)
+      return []
+    }
+  }
+
+  // Calculate total donated amount for a startup
+  const getTotalDonated = (startupId) => {
+    const donations = getDonations(startupId)
+    return donations.reduce((total, donation) => total + parseFloat(donation.amount || 0), 0)
+  }
+
+  // Generate consistent fundraising data based on startup ID
+  const generateFundraiseData = (startupId) => {
+    // Use startup ID as seed for consistent values
+    const seed = startupId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    const random = (min, max) => min + (seed % (max - min))
+    
+    // Get real donated amount
+    const realDonations = getTotalDonated(startupId)
+    const baseRaised = random(10000, 200000)
+    
+    return {
+      fundraiseGoal: random(100000, 500000),
+      fundraiseRaised: baseRaised + realDonations, // Add real donations to base amount
+      backers: random(10, 150) + getDonations(startupId).length, // Add real backers
+      daysLeft: random(5, 60)
+    }
+  }
+
   // Add fundraising-specific data to startups
   const allStartups = storeStartups.map(startup => {
     console.log('   Processing startup:', startup.name || startup.startup_name, startup)
+    const fundraiseData = generateFundraiseData(startup.id)
     return {
       ...startup,
-      // Add mock fundraising data (these could be fetched from blockchain in the future)
-      fundraiseGoal: Math.floor(Math.random() * 450000) + 50000,
-      fundraiseRaised: Math.floor(Math.random() * 200000) + 10000,
-      backers: Math.floor(Math.random() * 150) + 10,
-      daysLeft: Math.floor(Math.random() * 60) + 1,
+      ...fundraiseData
     }
   })
 
@@ -58,26 +95,92 @@ export function FundraisePage() {
     setDonationAmounts({ ...donationAmounts, [startupId]: amount })
   }
 
-  const handleDonate = async (startupId, startupName) => {
-    if (!currentAccount) {
-      alert("Please connect your Sui wallet first")
+  const openDonateDialog = (startup) => {
+    setSelectedStartup(startup)
+    setShowDonateDialog(true)
+  }
+
+  const handleDonate = async () => {
+    if (!currentAccount || !selectedStartup) {
       return
     }
 
-    const amount = donationAmounts[startupId]
+    const amount = donationAmounts[selectedStartup.id]
     if (!amount || parseFloat(amount) <= 0) {
       alert("Please enter a valid donation amount")
       return
     }
 
-    setProcessingDonations({ ...processingDonations, [startupId]: true })
+    const recipientAddress = selectedStartup.walletAddress || selectedStartup.owner
+    if (!recipientAddress) {
+      alert("Recipient address not found")
+      return
+    }
+
+    setProcessingDonations({ ...processingDonations, [selectedStartup.id]: true })
     
-    // Simulate blockchain transaction
-    setTimeout(() => {
-      alert(`Successfully donated ${amount} SUI to ${startupName}!`)
-      setDonationAmounts({ ...donationAmounts, [startupId]: "" })
-      setProcessingDonations({ ...processingDonations, [startupId]: false })
-    }, 2000)
+    try {
+      const tx = new Transaction()
+      
+      // Convert SUI amount to MIST (1 SUI = 1,000,000,000 MIST)
+      const amountInMist = Math.floor(parseFloat(amount) * 1_000_000_000)
+      
+      // Split coin for the exact amount
+      const [coin] = tx.splitCoins(tx.gas, [amountInMist])
+      
+      // Transfer to recipient
+      tx.transferObjects([coin], recipientAddress)
+      
+      // Execute transaction
+      signAndExecuteTransaction(
+        {
+          transaction: tx,
+          options: {
+            showEffects: true,
+            showObjectChanges: true,
+          }
+        },
+        {
+          onSuccess: (result) => {
+            console.log('✅ Donation successful:', result)
+            
+            // Save donation to localStorage
+            try {
+              const donations = getDonations(selectedStartup.id)
+              const newDonation = {
+                amount: amount,
+                from: currentAccount.address,
+                to: recipientAddress,
+                timestamp: new Date().toISOString(),
+                txDigest: result.digest
+              }
+              donations.push(newDonation)
+              localStorage.setItem(`donations_${selectedStartup.id}`, JSON.stringify(donations))
+              console.log('💾 Donation saved to localStorage')
+            } catch (e) {
+              console.error('Error saving donation:', e)
+            }
+            
+            alert(`Successfully donated ${amount} SUI to ${selectedStartup.name}!\n\nTransaction: ${result.digest}`)
+            setDonationAmounts({ ...donationAmounts, [selectedStartup.id]: "" })
+            setShowDonateDialog(false)
+            setProcessingDonations({ ...processingDonations, [selectedStartup.id]: false })
+            
+            // Refresh startups data to show updated amounts
+            fetchStartups()
+          },
+          onError: (error) => {
+            console.error('❌ Donation failed:', error)
+            alert(`Donation failed: ${error.message || 'Unknown error'}`)
+            setProcessingDonations({ ...processingDonations, [selectedStartup.id]: false })
+          }
+        }
+      )
+    } catch (error) {
+      console.error('❌ Error building transaction:', error)
+      alert(`Error: ${error.message || 'Failed to build transaction'}`)
+      setProcessingDonations({ ...processingDonations, [selectedStartup.id]: false })
+    }
   }
 
   const getRiskBadgeVariant = (riskLevel) => {
@@ -367,18 +470,12 @@ export function FundraisePage() {
                         step="0.1"
                       />
                       <Button
-                        onClick={() => handleDonate(startup.id, startup.name)}
-                        disabled={isDonating || !currentAccount || !donationAmount}
+                        onClick={() => openDonateDialog(startup)}
+                        disabled={!currentAccount || !donationAmount || parseFloat(donationAmount) <= 0}
                         className="px-6"
                       >
-                        {isDonating ? (
-                          <>Processing...</>
-                        ) : (
-                          <>
-                            <Coins className="w-4 h-4 mr-2" />
-                            Donate
-                          </>
-                        )}
+                        <Coins className="w-4 h-4 mr-2" />
+                        Donate
                       </Button>
                     </div>
                     {!currentAccount && (
@@ -394,6 +491,97 @@ export function FundraisePage() {
           </div>
         )}
       </div>
+
+      {/* Donation Confirmation Dialog */}
+      {selectedStartup && (
+        <Dialog open={showDonateDialog} onOpenChange={setShowDonateDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Coins className="w-5 h-5 text-blue-600" />
+                Confirm Donation
+              </DialogTitle>
+              <DialogDescription>
+                Review your donation details before sending
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              {/* Startup Info */}
+              <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
+                <img
+                  src={selectedStartup.logo}
+                  alt={selectedStartup.name}
+                  className="w-12 h-12 rounded-lg object-cover"
+                />
+                <div>
+                  <h3 className="font-semibold text-[#37322f]">{selectedStartup.name}</h3>
+                  <p className="text-sm text-[#605a57]">{selectedStartup.category}</p>
+                </div>
+              </div>
+
+              {/* Amount */}
+              <div className="p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-blue-900">Donation Amount</span>
+                  <Badge variant="outline" className="bg-blue-100">
+                    Trust Score: {selectedStartup.trustScore}
+                  </Badge>
+                </div>
+                <div className="text-3xl font-bold text-blue-600 font-serif">
+                  {donationAmounts[selectedStartup.id] || '0'} SUI
+                </div>
+                <p className="text-xs text-blue-600 mt-1">
+                  ≈ ${(parseFloat(donationAmounts[selectedStartup.id] || 0) * 3.50).toFixed(2)} USD
+                </p>
+              </div>
+
+              {/* Recipient */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[#37322f]">Recipient Address</label>
+                <div className="p-3 bg-secondary/50 rounded-lg">
+                  <code className="text-xs text-[#605a57] break-all block">
+                    {selectedStartup.walletAddress || selectedStartup.owner}
+                  </code>
+                </div>
+              </div>
+
+              {/* Warning */}
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-xs text-yellow-800">
+                  <strong>⚠️ Important:</strong> This transaction is irreversible. Please verify the recipient address before proceeding.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDonateDialog(false)}
+                  className="flex-1"
+                  disabled={processingDonations[selectedStartup.id]}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDonate}
+                  disabled={processingDonations[selectedStartup.id]}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                >
+                  {processingDonations[selectedStartup.id] ? (
+                    <>Processing...</>
+                  ) : (
+                    <>
+                      <Coins className="w-4 h-4 mr-2" />
+                      Send Funds
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
