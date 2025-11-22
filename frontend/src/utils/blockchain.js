@@ -7,7 +7,7 @@ const PUBLISHER = import.meta.env.VITE_WALRUS_PUBLISHER || 'https://wal-publishe
 // API Base URL - automatically detects environment
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
   (import.meta.env.PROD 
-    ? 'https://your-backend-app.onrender.com'  // Update this with your Render URL
+    ? 'https://startupseal.onrender.com'  // Your Render backend URL
     : 'http://localhost:5000');
 
 /**
