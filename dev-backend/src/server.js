@@ -11,6 +11,8 @@ const aiRoutes = require('./routes/ai.routes');
 const verifyRoutes = require('./routes/verify.routes');
 const githubRoutes = require('./routes/github.routes');
 const sealsRoutes = require('./routes/seals.routes');
+const donationsRoutes = require('./routes/donations.routes');
+const usersRoutes = require('./routes/users.routes');
 // const dataRoutes = require('./routes/data.routes');
 // const authRoutes = require('./routes/auth.routes');
 
@@ -29,11 +31,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Rate limiting
+// Rate limiting - lenient for development
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-  message: 'Too many requests from this IP, please try again later.'
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000, // Increased to 1000 for development
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 app.use('/api/', limiter);
 
@@ -55,6 +59,8 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/verify', verifyRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api/seals', sealsRoutes);
+app.use('/api/donations', donationsRoutes);
+app.use('/api/users', usersRoutes);
 // app.use('/api/data', dataRoutes);
 // app.use('/api/auth', authRoutes);
 

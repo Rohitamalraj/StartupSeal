@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { Wallet, LogOut, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { getStartupSealsByAddress } from '../utils/blockchain';
 
 export function WalletConnect() {
   const currentAccount = useCurrentAccount();
@@ -11,32 +12,28 @@ export function WalletConnect() {
   const [userSeals, setUserSeals] = useState([]);
 
   useEffect(() => {
-    if (currentAccount) {
-      // Get all startup seals created by this user from localStorage
-      const allSeals = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('startup_seal_')) {
-          try {
-            const data = JSON.parse(localStorage.getItem(key));
-            // Check if this seal was created by the current user
-            if (data.owner === currentAccount.address || data.data_blob_id) {
-              const transactionId = key.replace('startup_seal_', '');
-              allSeals.push(transactionId);
-            }
-          } catch (e) {
-            console.error('Error parsing seal data:', e);
-          }
+    const fetchUserSeals = async () => {
+      if (currentAccount) {
+        try {
+          // Fetch user's seals from backend API
+          const seals = await getStartupSealsByAddress(currentAccount.address);
+          setUserSeals(seals);
+        } catch (error) {
+          console.error('Error fetching user seals:', error);
+          setUserSeals([]);
         }
+      } else {
+        setUserSeals([]);
       }
-      setUserSeals(allSeals);
-    }
+    };
+
+    fetchUserSeals();
   }, [currentAccount]);
 
   const handleProfileClick = () => {
     if (userSeals.length > 0) {
       // Navigate to the most recent seal
-      navigate(`/profile/${userSeals[userSeals.length - 1]}`);
+      navigate(`/profile/${userSeals[userSeals.length - 1].id}`);
     } else {
       // Navigate to verify page if no seals exist
       navigate('/verify');

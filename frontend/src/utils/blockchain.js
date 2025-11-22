@@ -107,11 +107,11 @@ export async function getStartupSealById(sealId) {
  */
 export async function getStartupSealsByAddress(address) {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/seals/address/${address}`);
+    const response = await axios.get(`${API_BASE_URL}/api/seals/user/${address}`);
     return response.data.seals || [];
   } catch (error) {
     console.error('Failed to fetch seals by address:', error);
-    throw new Error(`Failed to fetch startup seals: ${error.message}`);
+    return []; // Return empty array instead of throwing
   }
 }
 

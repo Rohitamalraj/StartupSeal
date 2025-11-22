@@ -10,7 +10,7 @@ import {
   CheckCircle2, Clock, XCircle, ExternalLink, Loader2, DollarSign, Target, Users as UsersIcon
 } from "lucide-react"
 import { useCurrentAccount } from "@mysten/dapp-kit"
-import { getUserStats, getContactRequests, updateContactRequest } from "../utils/users"
+import { getUserStats, getContactRequests, updateContactRequest, getDonations } from "../utils/users"
 import { getStartupSealsByAddress } from "../utils/blockchain"
 
 export function DashboardPage() {
@@ -43,42 +43,39 @@ export function DashboardPage() {
         setReceivedRequests(receivedData.requests || [])
         setSentRequests(sentData.requests || [])
         
-        // Get real donations from localStorage
-        const getDonations = (startupId) => {
-          try {
-            const donations = localStorage.getItem(`donations_${startupId}`)
-            return donations ? JSON.parse(donations) : []
-          } catch (e) {
-            return []
-          }
-        }
-        
-        // Calculate total donated amount
-        const getTotalDonated = (startupId) => {
-          const donations = getDonations(startupId)
-          return donations.reduce((total, donation) => total + parseFloat(donation.amount || 0), 0)
-        }
-        
-        // Generate consistent fundraising data based on startup ID
-        const generateFundraiseData = (startupId) => {
+        // Generate consistent fundraising data with real donations from API
+        const generateFundraiseData = async (startupId) => {
           const seed = startupId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
           const random = (min, max) => min + (seed % (max - min))
           
-          const realDonations = getTotalDonated(startupId)
+          // Fetch real donations from backend
+          let realDonations = 0
+          let realBackers = 0
+          try {
+            const response = await getDonations(startupId)
+            realDonations = response.stats?.totalAmount || 0
+            realBackers = response.stats?.totalBackers || 0
+          } catch (e) {
+            console.error('Error fetching donations:', e)
+          }
+          
           const baseRaised = random(50000, 300000)
           
           return {
             fundraiseGoal: 500000,
             fundraiseRaised: baseRaised + realDonations,
-            backers: random(10, 150) + getDonations(startupId).length,
+            backers: random(10, 150) + realBackers,
             daysLeft: random(5, 60)
           }
         }
         
-        const startupsWithFundraising = (myStartupsData || []).map(startup => ({
-          ...startup,
-          ...generateFundraiseData(startup.id)
-        }))
+        // Fetch fundraise data for each startup
+        const startupsWithFundraising = await Promise.all(
+          (myStartupsData || []).map(async (startup) => ({
+            ...startup,
+            ...(await generateFundraiseData(startup.id))
+          }))
+        )
         setMyStartups(startupsWithFundraising)
       } catch (error) {
         console.error('Error fetching dashboard data:', error)

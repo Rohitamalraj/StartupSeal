@@ -12,6 +12,7 @@ import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-ki
 import { Transaction } from "@mysten/sui/transactions"
 import { ContactStartupDialog } from "../components/ContactStartupDialog"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog"
+import { recordDonation, getDonations } from "../utils/users"
 
 export function FundraisePage() {
   const navigate = useNavigate()
@@ -27,6 +28,7 @@ export function FundraisePage() {
   const [processingDonations, setProcessingDonations] = useState({})
   const [showDonateDialog, setShowDonateDialog] = useState(false)
   const [selectedStartup, setSelectedStartup] = useState(null)
+  const [donationsData, setDonationsData] = useState({}) // Store donations from API
 
   // Fetch startups from blockchain on mount
   useEffect(() => {
@@ -39,22 +41,26 @@ export function FundraisePage() {
     console.log('   Total startups:', storeStartups.length)
   }, [storeStartups])
 
-  // Get real donations from localStorage
-  const getDonations = (startupId) => {
-    try {
-      const donations = localStorage.getItem(`donations_${startupId}`)
-      return donations ? JSON.parse(donations) : []
-    } catch (e) {
-      console.error('Error reading donations:', e)
-      return []
+  // Fetch donations data for all startups
+  useEffect(() => {
+    const fetchAllDonations = async () => {
+      const donationsMap = {}
+      for (const startup of storeStartups) {
+        try {
+          const response = await getDonations(startup.id)
+          donationsMap[startup.id] = response.stats || { totalAmount: 0, totalBackers: 0 }
+        } catch (error) {
+          console.error(`Error fetching donations for ${startup.id}:`, error)
+          donationsMap[startup.id] = { totalAmount: 0, totalBackers: 0 }
+        }
+      }
+      setDonationsData(donationsMap)
     }
-  }
 
-  // Calculate total donated amount for a startup
-  const getTotalDonated = (startupId) => {
-    const donations = getDonations(startupId)
-    return donations.reduce((total, donation) => total + parseFloat(donation.amount || 0), 0)
-  }
+    if (storeStartups.length > 0) {
+      fetchAllDonations()
+    }
+  }, [storeStartups])
 
   // Generate consistent fundraising data based on startup ID
   const generateFundraiseData = (startupId) => {
@@ -62,14 +68,15 @@ export function FundraisePage() {
     const seed = startupId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
     const random = (min, max) => min + (seed % (max - min))
     
-    // Get real donated amount
-    const realDonations = getTotalDonated(startupId)
+    // Get real donated amount from API
+    const realDonations = donationsData[startupId]?.totalAmount || 0
+    const realBackers = donationsData[startupId]?.totalBackers || 0
     const baseRaised = random(10000, 200000)
     
     return {
       fundraiseGoal: random(100000, 500000),
       fundraiseRaised: baseRaised + realDonations, // Add real donations to base amount
-      backers: random(10, 150) + getDonations(startupId).length, // Add real backers
+      backers: random(10, 150) + realBackers, // Add real backers
       daysLeft: random(5, 60)
     }
   }
@@ -141,33 +148,35 @@ export function FundraisePage() {
           }
         },
         {
-          onSuccess: (result) => {
+          onSuccess: async (result) => {
             console.log('✅ Donation successful:', result)
             
-            // Save donation to localStorage
+            // Record donation in backend
             try {
-              const donations = getDonations(selectedStartup.id)
-              const newDonation = {
+              await recordDonation({
+                startupId: selectedStartup.id,
                 amount: amount,
                 from: currentAccount.address,
                 to: recipientAddress,
-                timestamp: new Date().toISOString(),
-                txDigest: result.digest
-              }
-              donations.push(newDonation)
-              localStorage.setItem(`donations_${selectedStartup.id}`, JSON.stringify(donations))
-              console.log('💾 Donation saved to localStorage')
+                txDigest: result.digest,
+                timestamp: new Date().toISOString()
+              })
+              console.log('💾 Donation recorded in backend')
+              
+              // Refresh donations data
+              const response = await getDonations(selectedStartup.id)
+              setDonationsData({
+                ...donationsData,
+                [selectedStartup.id]: response.stats || { totalAmount: 0, totalBackers: 0 }
+              })
             } catch (e) {
-              console.error('Error saving donation:', e)
+              console.error('Error recording donation:', e)
             }
             
             alert(`Successfully donated ${amount} SUI to ${selectedStartup.name}!\n\nTransaction: ${result.digest}`)
             setDonationAmounts({ ...donationAmounts, [selectedStartup.id]: "" })
             setShowDonateDialog(false)
             setProcessingDonations({ ...processingDonations, [selectedStartup.id]: false })
-            
-            // Refresh startups data to show updated amounts
-            fetchStartups()
           },
           onError: (error) => {
             console.error('❌ Donation failed:', error)

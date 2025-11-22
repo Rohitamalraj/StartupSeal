@@ -127,3 +127,42 @@ export async function getUserStats(walletAddress) {
     throw error;
   }
 }
+
+/**
+ * Record a donation to a startup
+ */
+export async function recordDonation(data) {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/donations/record`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error recording donation:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get all donations for a startup
+ */
+export async function getDonations(startupId) {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/donations/${startupId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching donations:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get all donations made by a user
+ */
+export async function getUserDonations(walletAddress) {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/donations/user/${walletAddress}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user donations:', error);
+    throw error;
+  }
+}
