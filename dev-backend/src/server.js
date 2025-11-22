@@ -29,8 +29,9 @@ app.use(helmet({
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? [
-        'https://startupseal-frontend.vercel.app', // Your frontend URL
-        'https://startup-seal-frontend.vercel.app',
+        'https://startupseal.vercel.app', // Your live frontend URL
+        'https://startupseal-frontend.vercel.app',
+        'https://startup-seal.vercel.app',
         'https://walrus-startup-seal.vercel.app',
         // Add your actual frontend domain here
       ]
