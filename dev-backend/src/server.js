@@ -29,16 +29,18 @@ app.use(helmet({
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? [
-        'https://startupseal.vercel.app', // Your live frontend URL
+        'https://startupseal.vercel.app', // Your frontend URL
         'https://startupseal-frontend.vercel.app',
         'https://startup-seal.vercel.app',
         'https://walrus-startup-seal.vercel.app',
-        // Add your actual frontend domain here
+        // Allow all for testing
+        '*'
       ]
     : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200 // For legacy browser support
 };
 
 app.use(cors(corsOptions));
@@ -81,6 +83,12 @@ app.use('/api/users', usersRoutes);
 // app.use('/api/data', dataRoutes);
 // app.use('/api/auth', authRoutes);
 
+// Request logging middleware for debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+  next();
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
@@ -94,7 +102,13 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  console.log(`404 - Route not found: ${req.method} ${req.url}`);
+  res.status(404).json({ 
+    error: 'Route not found',
+    method: req.method,
+    url: req.url,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Start server

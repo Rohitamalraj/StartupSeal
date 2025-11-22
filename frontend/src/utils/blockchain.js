@@ -86,11 +86,23 @@ export async function downloadFromWalrus(blobId) {
  */
 export async function getAllStartupSeals() {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/seals/all`);
+    console.log('🔍 Fetching startups from:', `${API_BASE_URL}/api/seals/all`);
+    const response = await axios.get(`${API_BASE_URL}/api/seals/all`, {
+      timeout: 10000, // 10 second timeout
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log('✅ Startup seals fetched:', response.data);
     return response.data.seals || [];
   } catch (error) {
-    console.error('Failed to fetch seals:', error);
-    throw new Error(`Failed to fetch startup seals: ${error.message}`);
+    console.error('❌ Failed to fetch seals:', error);
+    console.error('   URL:', `${API_BASE_URL}/api/seals/all`);
+    console.error('   Error details:', error.response?.data || error.message);
+    
+    // Return empty array instead of throwing to prevent UI crash
+    return [];
   }
 }
 
