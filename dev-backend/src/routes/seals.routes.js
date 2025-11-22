@@ -127,6 +127,52 @@ router.get('/all', async (req, res) => {
 });
 
 /**
+ * GET /api/seals/leaderboard
+ * Get leaderboard (sorted by trust score)
+ * NOTE: This MUST be before /:id route to avoid matching "leaderboard" as an ID
+ */
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const { hackathon, category, limit = 50 } = req.query;
+    
+    console.log('📊 Fetching leaderboard...');
+    if (hackathon) console.log('   Filter: Hackathon =', hackathon);
+    if (category) console.log('   Filter: Category =', category);
+
+    // Fetch all seals (in production, this would be optimized with indexing)
+    const allSealsResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/seals/all`);
+    const { seals } = await allSealsResponse.json();
+
+    // Apply filters
+    let filtered = seals;
+    
+    if (hackathon && hackathon !== 'All Hackathons') {
+      filtered = filtered.filter(s => s.hackathon_name === hackathon);
+    }
+
+    // Sort by trust score descending
+    const sorted = filtered
+      .sort((a, b) => b.overall_trust_score - a.overall_trust_score)
+      .slice(0, parseInt(limit));
+
+    console.log(`✅ Returning top ${sorted.length} startups`);
+
+    res.json({
+      success: true,
+      count: sorted.length,
+      seals: sorted
+    });
+
+  } catch (error) {
+    console.error('❌ Leaderboard fetch failed:', error);
+    res.status(500).json({
+      error: 'Failed to fetch leaderboard',
+      message: error.message
+    });
+  }
+});
+
+/**
  * GET /api/seals/:id
  * Fetch a specific startup seal by object ID or transaction digest
  */
@@ -190,51 +236,6 @@ router.get('/:id', async (req, res) => {
     console.error('❌ Failed to fetch seal:', error);
     res.status(500).json({
       error: 'Failed to fetch startup seal',
-      message: error.message
-    });
-  }
-});
-
-/**
- * GET /api/seals/leaderboard
- * Get leaderboard (sorted by trust score)
- */
-router.get('/leaderboard', async (req, res) => {
-  try {
-    const { hackathon, category, limit = 50 } = req.query;
-    
-    console.log('📊 Fetching leaderboard...');
-    if (hackathon) console.log('   Filter: Hackathon =', hackathon);
-    if (category) console.log('   Filter: Category =', category);
-
-    // Fetch all seals (in production, this would be optimized with indexing)
-    const allSealsResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/seals/all`);
-    const { seals } = await allSealsResponse.json();
-
-    // Apply filters
-    let filtered = seals;
-    
-    if (hackathon && hackathon !== 'All Hackathons') {
-      filtered = filtered.filter(s => s.hackathon_name === hackathon);
-    }
-
-    // Sort by trust score descending
-    const sorted = filtered
-      .sort((a, b) => b.overall_trust_score - a.overall_trust_score)
-      .slice(0, parseInt(limit));
-
-    console.log(`✅ Returning top ${sorted.length} startups`);
-
-    res.json({
-      success: true,
-      count: sorted.length,
-      seals: sorted
-    });
-
-  } catch (error) {
-    console.error('❌ Leaderboard fetch failed:', error);
-    res.status(500).json({
-      error: 'Failed to fetch leaderboard',
       message: error.message
     });
   }

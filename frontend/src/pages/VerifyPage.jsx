@@ -537,6 +537,11 @@ export function VerifyPage() {
       
       const documentHashBytes = Array.from(new TextEncoder().encode(formData.description || 'none'))
 
+      // Get Trust Oracle score if available, otherwise calculate from individual scores
+      const trustOracleScore = trustOracleResult?.score || Math.round(
+        (hackathonScore * 0.4) + (githubScore * 0.3) + (aiScore * 0.2) + (documentScore * 0.1)
+      )
+
       console.log('📝 Transaction parameters:', {
         name: formData.startupName,
         nameBytes: nameBytes.length,
