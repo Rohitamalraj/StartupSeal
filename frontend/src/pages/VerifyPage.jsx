@@ -421,7 +421,7 @@ export function VerifyPage() {
             currentStep: `📤 Uploading ${files.length} file(s) to Walrus...` 
           }))
           
-          const uploadResponse = await fetch('http://localhost:5000/api/verify/media-upload-batch', {
+          const uploadResponse = await fetch(`${API_BASE_URL}/api/verify/media-upload-batch`, {
             method: 'POST',
             body: formData
           })
@@ -681,7 +681,7 @@ ${overallScore >= 70 ? '✅ Auto-verified! Your seal is ready to use.' : '⚠️
               const dataFormData = new FormData()
               dataFormData.append('file', dataBlob, `startup_${result.digest}.json`)
               
-              const walrusUpload = await fetch('http://localhost:5000/api/verify/media-upload', {
+              const walrusUpload = await fetch(`${API_BASE_URL}/api/verify/media-upload`, {
                 method: 'POST',
                 body: dataFormData
               })

@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+// API Base URL - automatically detects environment
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (import.meta.env.PROD 
+    ? 'https://startupseal.onrender.com'  // Your Render backend URL
+    : 'http://localhost:5000');
 
 /**
  * Get or create user profile
