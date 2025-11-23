@@ -21,7 +21,7 @@ import {
 // Contract addresses from environment
 const PACKAGE_ID = import.meta.env.VITE_PACKAGE_ID
 const SEAL_REGISTRY = import.meta.env.VITE_SEAL_REGISTRY
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID
 
 export function VerifyPage() {
